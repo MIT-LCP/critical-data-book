@@ -1,0 +1,182 @@
+---
+title: 'Section 2: Chapter 5d -- Data Analysis: Survival Analysis'
+author: "Jesse D. Raffa, Marzyeh Ghassemi, Tristan Naumann, Mengling Feng and Douglas Hsu"
+date: \today
+header-includes:
+output: 
+  pdf_document:
+    highlight: default
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: true
+    includes:  
+      in_header: "/media/veracrypt1/MIT-book/preamble.tex"
+csl: ieee.csl
+bibliography: bib.bib
+---
+
+```{r echo=FALSE}
+dat <- read.csv("full_cohort_data.csv")
+```
+
+\doublespacing
+
+# Chapter Goals
+
+In this subchapter, the reader will learn the fundamentals of survival analysis, and how to present and interpret such an analysis.
+
+
+# Introduction
+
+\doublespacing
+
+As you will note that in the previous subchapter on logistic regression, we specifically looked at the mortality outcome at 28 days.  This was deliberate, and illustrates a limitation of using logistic regression for this type of outcome.  For example, in the previous analysis, someone who died on day 29 was treated identically as someone who went on to live for 80+ years.  You may wonder, why not just simply treat the survival time as a continuous variable, and perform linear regression analysis on this outcome?  There are several reasons, but the primary reason is that you likely won't be able to wait around for the lifetime for each study participant.  It is likely in your study only a fraction of your subjects will die before you're ready to publish your results.  
+
+While we often focus on mortality this can occur for many other outcomes, including times to patient relapse, re-hospitalization, reinfection, etc.  In each of these types of outcomes, it is presumed the patients are at risk of the outcome until the event happens, or until they are *censored*.  Censoring can happen for a variety of different reasons, but indicates the event was not observed during the observation time. In this sense, survival or more generally time-to-event data is a bivariate outcome incorporating the observation or study time in which the patient was observed and whether the event happened during the period of observation.  The particular case we will be most interested is *right censoring* (subjects are observed only up to a point in time, and we don't know what happens beyond this point), but there is also *left censoring* (we only know the event happened before some time point) and *interval censoring* (events happen inside some time window).  Right censoring is generally the most common type, but it is important to understand how the data was collected to make sure that it is indeed right censored.  
+
+Establishing a common time origin (i.e., a place to start counting time) is often easy to identify (e.g., admission to the ICU, enrollment in a study, administration of a drug, etc), but in other scenarios it may not be (e.g., perhaps interest lies in survival time since disease onset, but patients are only followed from the time of disease diagnosis).  For a good treatment on this topic and other issues, see Chapter 3 of [@kleinbaum2006survival].
+
+With this additional complexity in the data (relative to logistic and linear regression), there are additional technical aspects and assumptions to the data analysis approaches. In general, each approach attempts to compare groups or identify covariates which modify the survival rates among the patients studied. 
+
+Overall survival analysis is a complex and fascinating area of study, and we will only touch briefly on two types of analysis here.   We largely ignore the technical details of these approaches focusing on general principles and intuition instead.  Before we begin doing any survival analysis, we need to load the `survival` package in R, which we can do by running:
+
+\singlespacing
+
+```{r echo=TRUE}
+library(survival);
+```
+
+\doublespacing
+
+Normally, you can skip the next step, but since this dataset was used to analyze the data in a slightly different way, we need to correct the observation times for a subset of the subjects in the dataset.
+
+\singlespacing
+
+```{r echo=TRUE}
+dat$mort_day_censored[dat$censor_flg==1] <- 731;
+```
+
+\doublespacing
+
+# Kaplan-Meier Survival Curves
+
+Now that we have the technical issues sorted out, we can begin by visualizing the data.  Just as the 2x2 table is a fundamental step in the analysis of binary data, the fundamental step for survival data is often plotting what is known as a Kaplan-Meier survival function [@kaplan1958nonparametric].  The *survival function* is a function of time, and is the probability of surviving at least that amount of time.  For example, if there was 80\% survival at one year, the survival function at one year is 0.8.  Survival functions normally start at `time=0`, where the survivor function is 1 (or 100\% -- everyone is alive), and can only stay the same or decrease.  If it were to increase as time progressed, that would mean people were coming back to life!  Kaplan-Meier plots are one of the most widely used plots in medical research.
+
+Before plotting the Kaplan-Meier plot, we need to setup a `survfit` object.  This object has a familiar form, but differs slightly from the previous methodologies we covered.  Specifying a formula for survival outcomes is somewhat more complicated, since as we noted, survival data has two components.  We do this by creating a `Surv` object in R.  This will be our survival outcome for subsequent analysis.
+
+\singlespacing
+
+```{r echo=TRUE}
+datSurv <- Surv(dat$mort_day_censored,dat$censor_flg==0)
+datSurv[101:105]
+```
+
+\doublespacing
+
+The first step setups a new kind of `R` object useful for survival data.  The `Surv` function normally takes two arguments: a vector of times, and some kind of indicator for which patients had an event (death in our case).  In our case, the vector of death and censoring times are the `mort_day_censored`, and deaths are coded with a zero in the `censor_flg` variable (hence we identify the events where `censor_flg==0`).  The last step prints out 5 entries of the new object (observations 101 to 105).  We can see there are three entries of `731.00+`.  The `+` indicates that this observation is censored.  The other entries are not censored, indicating deaths at those times.
+
+Fitting a Kaplan-Meier curve is quite easy after doing this, but requires two steps.  The first specifies a formula similar to how we accomplished this for linear and logistic regression, but now using the `survfit` function.  We want to 'fit' by gender (`gender_num`), so the formula is, `datSurv~gender_num`.  We can then `plot` the newly created object, but we pass some additional arguments to the plot function which include 95\% confidence intervals for the survival functions (`conf.int=TRUE`), and includes a x- and y- axis label (`xlab` and `ylab`).  Lastly we add a legend, coding black for the women and red for the men.  This plot is in Figure 1.
+
+\singlespacing
+
+```{r echo=FALSE,fig.cap="Kaplan-Meier plot of the estimated survivor function stratified by gender",results="hide"}
+gender.surv <- survfit(datSurv~gender_num,data=dat)
+postscript("FigD1.eps")
+plot(gender.surv,col=1:2,conf.int = TRUE,xlab="Days",ylab="Proportion Who Survived")
+legend(400,0.4,col=c("black","red"),lty=1,c("Women","Men"))
+dev.off()
+```
+
+```{r echo=TRUE,fig.cap="Kaplan-Meier plot of the estimated survivor function stratified by gender"}
+plot(gender.surv,col=1:2,conf.int = TRUE,xlab="Days",ylab="Proportion Who Survived")
+legend(400,0.4,col=c("black","red"),lty=1,c("Women","Men"))
+```
+
+\doublespacing
+
+In Figure 1, there appears to be a difference between the survival function between the two gender groups, with again the male group (red) dying at slightly slower rate than the female group (black).  We have included 95\% point-wise confidence bands for the survival function estimate, which assesses how much certain we are about the estimated survivorship at each point in time.  We can do the same for `service_unit`, but since it has three groups, we need to change the color argument and legend to ensure the plot is properly labelled.  This plot is in Figure 2.
+
+\singlespacing
+
+```{r echo=FALSE,fig.cap="Kaplan-Meier plot of the estimated survivor function stratified by service unit",results="hide"}
+unit.surv <- survfit(datSurv~service_unit,data=dat)
+postscript("FigD2.eps")
+plot(unit.surv,col=1:3,conf.int = FALSE,xlab="Days",ylab="Proportion Who Survived")
+legend(400,0.4,col=c("black","red","green"),lty=1,c("FICU","MICU","SICU"))
+dev.off()
+
+```{r echo=TRUE,fig.cap="Kaplan-Meier plot of the estimated survivor function stratified by service unit"}
+plot(unit.surv,col=1:3,conf.int = FALSE,xlab="Days",ylab="Proportion Who Survived")
+legend(400,0.4,col=c("black","red","green"),lty=1,c("FICU","MICU","SICU"))
+```
+
+\doublespacing
+
+# Cox Proportional Hazards Models
+
+Kaplan-Meier curves are a good first step in examining time to event data before proceeding with any more complex statistical model.  Time to event outcomes are in general more complex than the other types of outcomes we have examined thus far.  There are several different modelling approaches, each of which has some advantages and limitations.  The most popular approach for health data is likely the Cox Proportional Hazards Model [@coxph1972], which is also sometimes called the Cox model or Cox Regression.  As the name implies this method models something called the hazard function.  We will not dwell on the technical details, but attempt to provide some intuition.  The hazard function is a function of time (hours, days, years) and is approximately the instantaneous probability of the event occurring (i.e., chance the event is happening in some very small time window) given the event has not already happened.  It is frequently used to study mortality, sometimes going by the name force of mortality or instantaneous death rate, and can be interpreted simply as the risk of death at a particular time, given that the person has survived up until that point.  The "proportional" part of Cox's model assumes that the way covariates effect the hazard function for different types of patients is through a proportionality assumption relative to the baseline hazard function.  For illustration, consider a simple case where two treatments are given, for treatment 0 (e.g., the placebo) we determine the hazard function is $h_0(t)$, and for treatment 1 we determine the hazard function is $h_1(t)$, where $t$ is time.  The proportional hazards assumption is that:
+
+\centering
+
+$h_1(t) = HR \times h_0(t)$.
+
+\raggedright
+
+It's easy to see that $HR = h_1(t)/h_0(t)$. This quantity is often called the hazard ratio, and if for example it is two, this would mean that the risk of death in the treatment 1 group was twice as high as the risk of death in the treatment zero group.  We will note, that $HR$ is *not* a function of time, meaning that the risk of death is *always* twice as high in the first group when compared to the second group.  This assumption means that if the proportional hazards assumption is valid we need only know the hazard function from group 0, and the hazard ratio to know the hazard function for group 1.  Estimation of the hazard function under this model is often considered a nuisance, as the primary focus is on the hazard ratio, and this is key to being able to fit and interpret these models.  For a more technical treatment of this topic, we refer you to [@kleinbaum2006survival;@collett2015modelling;@kalbfleisch2011statistical;@therneau2000modeling].
+
+As was the case with logistic regression, we will model the log of the hazard ratio instead of the hazard ratio itself. This allows us to use the familiar framework we have used thus far for modeling other types of health data.  Like logistic regression, when the $\log(HR)$ is zero, the $HR$ is one, meaning the risk between the groups is the same.  Furthermore, this extends to multiple covariate models or continuous covariates in the same manner as logistic regression.
+
+Fitting Cox regression models in `R` will follow the familiar pattern we have seen in the previous cases of linear and logistic regressions.  The `coxph` function (from the `survival` package) is the fitting function for Cox models, and it continues the general pattern of passing a model formula (`outcome ~ covariate`), and the dataset you would like to use.  In our case, let's continue our example of using gender (`gender_num`) to model the `datSurv` outcome we created, and running the `summary` function to see what information is outputted.
+
+\singlespacing
+
+```{r echo=TRUE}
+gender.coxph <- coxph(datSurv ~ gender_num,data=dat)
+summary(gender.coxph)
+```
+
+\doublespacing
+
+The coefficients table has the familiar format, which we've seen before.  The `coef` for `gender_num` is about -0.29, and this is the estimate of our log-hazard ratio.  As discussed, taking the exponential of this gives the hazard ratio (HR), which the summary output computes in the next column (`exp(coef)`).  Here, the HR is estimated at 0.75, indicating that men have about a 25\% reduction in the hazards of death, under the proportional hazards assumption.  
+The next column in the coefficient table has the standard error for the log hazard ratio, followed by the `z` score and p-value (`Pr(>|z|)`), which is very similar to what we saw in the case of logistic regression.  Here we see the p-value is quite small, and we would reject the null hypothesis that the hazard functions are the same between men and women.  This is consistent with the exploratory figures we produced using Kaplan-Meier curves in the previous section.  For `coxph`, the `summary` function also conveniently outputs the confidence interval of the HR a few lines down, and here our estimate of the HR is 0.75 (95\% CI: 0.63-0.89, p=0.001). This is how the HR would typically be reported.
+
+Using more than one covariate works the same as our other analysis techniques.  Adding a co-morbidity to the model such as atrial fibrillation (`afib_flg`) can be done as you would do for logistic regression
+
+\singlespacing
+
+```{r echo=TRUE}
+genderafib.coxph <- coxph(datSurv~gender_num + afib_flg,data=dat)
+summary(genderafib.coxph)$coef
+```
+
+
+\doublespacing
+
+Here again male gender is associated with reduced time to death, while atrial fibrillation increases the hazard of death by almost four-fold.  Both are statistically significant in the summary output, and we know from before that we can test a large number of other types of statistical hypotheses using the `anova` function.  Again we pass `anova` the smaller (`gender_num` only) and larger (`gender_num` and `afib_flg`) nested models.
+
+\singlespacing
+
+```{r echo=TRUE}
+anova(gender.coxph,genderafib.coxph)
+```
+
+\doublespacing
+
+As expected, atrial fibrillation is very statistically significant, and therefore we would like to keep it in the model.
+
+Cox regression also allows one to use covariates which change over time.  This would allow one to incorporate changes in treatment, disease severity, etc within the same patient without need for any different methodology.  The major challenge to do this is mainly in the construction of the dataset, which is discussed in some of the references at the end of this chapter.  Some care is required when the time dependent covariate is only measure periodically, as the method requires that it be known at every event time for the entire cohort of patients, and not just those relevant to the patient in question.  This is more practical for changes in treatment which may be recorded with some precision, particularly in a database like MIMIC II, and less so for laboratory results which may be measured at the resolution of hours, days or weeks.  Interpolating between lab values or carrying the last observation forward has been shown to introduce several types of problems.
+
+
+# Caveats and Conclusions
+
+We will conclude this brief overview of survival analysis, but acknowledge we have only scratched the surface.  There are many topics we have not covered or we have only briefly touched on.
+
+Survival analysis is distinguished from other forms of analyses covered in Chapter 5, as it allows the data to be censored.  As was the case for the other approaches we considered, there are modeling assumptions.  For instance, it is important that the censoring is not informative of the survival time.  For example, if censoring occurs when treatment is withdrawn *because* the patient is too sick to continue therapy, this would be an example of informative censoring.  The validity of all methods discussed in this subchapter are then invalid. Care should be taken to make sure you understand the censoring mechanism as to avoid any false inferences drawn.
+
+Assessment of the proportional hazards assumption is an important part of any Cox regression analysis.  We refer you to the references (particularly [@therneau2000modeling] and see `?cox.zph`) at the end of this chapter for strategies and alternatives for when the proportional hazards assumption breaks down.  In some circumstances, the proportional hazards assumption is not valid, and alternative approaches can be used.
+
+As is always the case, when outcomes are dependent (e.g., one patient may contribute more than one observation), the methods discussed in this subchapter should not be used directly.  Generally the standard error estimates will be too small, and p-values will be incorrect.  The concerns in logistic regression regarding outliers, co-linearity, missing data, and covariates with sparse outcomes apply here as well, as do the concerns about model misspecification for continuous covariates.
+
+Survival analysis is a powerful analysis technique which is extremely relevant for health studies.  We have only given a brief overview of the subject, and would encourage you to further explore these methods.
+
+# References

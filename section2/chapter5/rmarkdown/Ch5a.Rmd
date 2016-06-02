@@ -1,0 +1,160 @@
+---
+title: 'Section 2: Chapter 5a -- Data Analysis: Introduction to Data Analysis'
+author: "Jesse D. Raffa, Marzyeh Ghassemi, Tristan Naumann, Mengling Feng and Douglas Hsu"
+date: \today
+header-includes:
+output: 
+  pdf_document: 
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: true
+    includes:  
+      in_header: "/media/veracrypt1/MIT-book/preamble.tex"
+csl: ieee.csl
+bibliography: bib.bib
+---
+
+\doublespacing
+
+# Introduction
+
+This chapter presents an overview of data analysis for health data.  We give a brief introduction to some of the most common methods for data analysis of health care data, focusing on choosing appropriate methodology for different types of study objectives, and on presentation and the interpretation of data analysis generated from health data.  We will provide an overview of three very powerful analysis methods: linear regression, logistic regression and Cox proportional hazards models, which provide the foundation for most data analysis conducted in clinical studies.
+
+## Chapter Goals
+
+By the time you complete this chapter you should be able to:
+
+  1. Understand how different study objectives will influence the type of data analysis. (Chapter 5a)
+  2. Be able to carry out three different types of data analysis that are common for health data. (Chapters 5b-d)
+  3. Present and interpret the results of these analyses types. (Chapters 5b-d)
+  4. Understand the limitations and assumptions underlying the different types of analyses (Chapters 5b-d).
+  5. Replicate an analysis from a case study using some of the methods learned in the chapter. (Chapter 5e)
+
+
+## Outline
+
+This chapter is composed of five subchapters. First, in this subchapter we will cover identifying data types and study objectives.  These topics will enable us to pick an appropriate analysis method among linear (Chapter 5b) or logistic (Chapter 5c) regression, and survival analysis (Chapter 5d), which comprise the next three subchapters.  Following that, we will use what we learned on a case study using real data from MIMIC II, briefly discuss model buidling and finally, summarize what we have learned (Chapter 5e)
+
+
+
+# Identifying Data Types and Study Objective
+
+In this section we will examine how different study objectives and data types affect the approaches one takes for data analysis.  Understanding the data structure and study objective is likely the most important aspect to choosing an appropriate analysis technique.  
+
+## Study Objectives
+
+Identifying the study objective is an extremely important aspect of planning data analysis for health data.  A vague or poorly described objective often leads to a poorly executed analysis.  The study objective should clearly identify the study population, the outcome of interest, the covariate(s) of interest, the relevant time points of the study, and what you would like to do with these items. Investing time to make the objective very specific and clear often will save time in the long run.
+
+An example of a clearly stated study objective would be:
+
+> To estimate the reduction in 28 day mortality associated with vasopressor use during the first three days from admission to the MICU in MIMIC II.
+
+An example of a vague and difficult to execute study objective may be:
+
+> To predict mortality in ICU patients.
+
+While both may be trying to accomplish the same goal, the first gives a much clearer path for the data scientist to perform the necessary analysis, as it identifies the study population (those admitted to the MICU in MIMIC II), outcome (28 day mortality), covariate of interest (vasopressor use in the first three days of the MICU admission), relevant time points (28 days for the outcome, within the first three days for the covariate).  The objective does not need to be overly complicated, and it's often convenient to specify primary and secondary objectives, rather than an overly complex single objective.
+
+<!-- [^mynote1]: It is advisable to go a step further and list important confounders as well ("after adjusting for..."), but we will keep it relatively simple at this point. -->
+
+## Data Types
+
+After specifying a clear study objective, the next step is to determine the types of data one is dealing with.  The first distinction is between outcomes and covariates.  Outcomes are what the study aims to investigate, improve or affect.  In the above example of a clearly stated objective, our outcome is 28 day mortality.  Outcomes are also sometimes referred to as response or dependent variables.   Covariates are the variables you would like to study for their effect on the outcome, or believe may have some nuisance effect on the outcome you would like to control for.  Covariates also go by several different names, including: features, predictors, independent variables and explanatory variables.  In our example objective, the primary covariate of interest is vasopressor use, but other covariates may also be important in affecting 28 day mortality, including age, gender, and so on.  
+
+Once you have identified the study outcomes and covariates, determining the data types of the outcomes will often be critical in choosing an appropriate analysis technique.  Data types can generally be identified as either continuous or discrete.  Continuous variables are those which can plausibly take on any numeric (real number) value, although this requirement is often not explicitly met.  <!-- Continuous variables are often constrained to a range (e.g., age must be positive) and sometimes they may take on only integer values (e.g., blood pressure). --> This contrasts with discrete data, which usually takes on only a few values.  For instance, gender can take on two values: male or female.  This is a *binary* variable as it takes on two values. More discussion on data types can be found in Chapter 3a. <!-- For these binary types of data usually the distinction is clear, but in other cases it may not be.  Consider a case where a patient is asked to evaluate their perceived pain on a five point scale, but the only accepted answer is a whole number.  In some cases this can be modeled as a continuous variable, but some caution is merited.  When dealing with a situation like this, it is often useful to consider if an individual who rates their pain as a two is in twice as much pain as if they rated it as a one.  If the answer is no, then it's usually wise to model the data as an ordinal discrete variable. This also frequently occurs in situations where disease severity is graded into a few (3-5) groups, where's it often unreasonable to assume that a person who has grade 2 is twice as severe as someone with grade 1.  We do not cover how to model ordinal data in this chapter, but it's something to be aware of. -->
+
+There is a special type of data which can be considered simultaneously as continuous and discrete types, as it has two components.  This frequently occurs in time to event data for outcomes like mortality, where both the occurrence of death and the length of survival are of interest. In this case, the discrete component is if the event (e.g., death) occurred during the observation period, and the continuous component is the time at which death occurred. The time at which the death occurred is not always available: in this case the time of the last observation is used, and the data is partially *censored*. We discuss censoring in more detail later in subchapter 5d.
+
+Figure 1 outlines the typical process by which you can identify outcomes from covariates, and determine which type of data type your outcome is.  For each of the types of outcomes we highlighted -- continuous, binary and survival, there is a set of analysis that are most common for use in health data -- linear regression, logistic regression and Cox proportional hazards models, respectively.
+
+
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}
+  \path (4.5,9)    node(objective) [circle, draw] {Objective}
+
+		(3,6)    node(outcome) [rectangle, draw] {Outcome}
+		(6,6)    node(covariate) [rectangle, draw] {Covariates}
+		(4.5,3)    node(continuous) [rectangle, draw] {Continuous}
+		(1.5,3)    node(discrete) [rectangle, draw] {Discrete}
+		(0,0)    node(binary) [rectangle, draw] {Binary}
+		(3,0)    node(survival) [rectangle, draw] {Survival}
+		(6,0)    node(continuoust) [rectangle, draw] {Continuous}
+		(0,-3)    node(binarym) [rectangle, draw,text width=2.4cm] {Logistic \\ Regression}
+		(3,-3)    node(survivalm) [rectangle, draw,text width=2.4cm] {Cox \\ Proportional \\ Hazards Model}
+		(6,-3)    node(continuoustm) [rectangle, draw,text width=2.4cm] {Linear \\ Regression}
+		;
+
+\draw[thick, black, ->] (objective) -- (covariate);
+  \draw[thick, black, ->] (objective) -- (outcome);
+  \draw[thick, black, ->] (outcome) -- (continuous);
+  \draw[thick, black, ->] (outcome) -- (discrete);
+  \draw[thick, black, ->] (discrete) -- (binary);
+
+
+  \draw[thick, black, ->] (binary) -- (binarym);
+  \draw[thick, black, ->] (continuoust) -- (continuoustm);
+  \draw[thick, black, ->] (survival) -- (survivalm);
+  \draw[thick, black, ->] (continuous) -- (survival) node [sloped,pos=0.5,below, text width=2.4cm] {event or \\ censoring time};
+  \draw[thick, black, ->] (continuous) -- (continuoust);
+  \draw[thick, black, ->] (discrete) -- (survival) node [sloped,pos=0.5,below, text width=2.5cm] {event occurred?};
+
+
+  \end{tikzpicture}\end{center}
+	\caption{Flow diagram of simplified process for choosing an analysis method based on the study objective and outcome data types}
+	\label{f:ChooseAnAnalysis}
+\end{figure}
+
+
+
+
+## Other important considerations
+
+The discussion thus far has given a basic outline of how to choose an analysis method for a given study objective.  Some caution is merited as this discussion has been rather brief and while it covers some of the most frequently used methods for analyzing health data, it is certainly not exhaustive.  There are many situations where this framework and subsequent discussion will break down and other methods will be necessary.  In particular, we highlight the following situations:
+
+1) When the data is not patient level data, such as aggregated data (totals) instead of individual level data.
+2) When patients contribute more than one observation (i.e., outcome) to the dataset.
+
+In these cases, other techniques should be used.
+
+# Case Study Data
+
+We will be using a case study [@hsu2015association] to explore data analysis approaches in health data.  The case study data originates from a study examining the effect of indwelling arterial catheters (IAC) on 28 day mortality in the intensive care unit (ICU) in patients who were mechanically ventilated during the first day of ICU admission.  The data comes from MIMIC II v2.6.  At this point you are ready to do data analysis  (the data extraction and cleaning has already been completed) and we will be using a comma separated (.csv) file generated after this process, which you can load directly off of PhysioNet [@goldberger2000physiobank;@mimic2iaacd]:
+
+<!-- [^loadnote]: If you cannot load the data, please download the file from the url: https://raw.githubusercontent.com/MIT-LCP/Aline/master/Data_Extraction/full_cohort_data.csv and load in `R` by using the `dat <- read.csv(file.choose())` command, navigating to where you downloaded the file to.  The work presented in this chapter is based on the commit with hash: 'd1957a1425114e0187abf89c201f3b777522772a' of the MIT-LCP/Aline repository on GitHub.com.  This should enable one to reproduce the results in full even if changes to the repository are made in the future. (https://github.com/MIT-LCP/Aline/tree/d1957a1425114e0187abf89c201f3b777522772a) -->
+
+
+\singlespacing
+
+```{r echo=FALSE,eval=TRUE}
+dat <- read.csv("full_cohort_data.csv")
+```
+
+
+```{r echo=TRUE,cache=TRUE,tidy=FALSE,eval=FALSE}
+url <- "http://physionet.org/physiobank/database/mimic2-iaccd/full_cohort_data.csv";
+dat <- read.csv(url)
+# Or download the csv file from:
+# http://physionet.org/physiobank/database/mimic2-iaccd/full_cohort_data.csv
+# Type: dat <- read.csv(file.choose())
+# And navigate to the file you downloaded (likely in your download directory)
+```
+
+\doublespacing
+
+The header of this file with the variable names can be accessed using the `names` function in `R`.  
+
+\singlespacing
+
+```{r echo=TRUE}
+names(dat)
+```
+
+\doublespacing
+
+There are 46 variables listed.  The primary focus of the study was on the effect that IAC placement (`aline_flg`) has on 28 day mortality (`day_28_flg`).  After we have covered the basics, we will identify a research objective and an appropriate analysis technique, and execute an abbreviated analysis to illustrate how to use these techniques to address real scientific questions.  Before we do this, we need to cover the basic techniques, and we will introduce three powerful data analysis methods frequently used in the analysis of health data.  We will use examples from the case study dataset to introduce these concepts, and will return to the the question of the effect of IAC place on mortality towards the end of this chapter.
+
+
+<!-- Hence, a suitable study objective would be: To estimate the effect of IAC has on 28 day mortality in MIMIC II, after adjusting for potential confounders.  We have identified the covariate of interest (IAC), other covariates of interest (i.e., potential confounders, e.g., age, gender, severity of illness, etc), the outcome (i.e., 28 day mortality), the study population (i.e., MIMIC II), and any important time points (i.e. mortality at 28 days). -->
+
+# References
