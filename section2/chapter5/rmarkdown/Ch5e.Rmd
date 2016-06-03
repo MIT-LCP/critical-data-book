@@ -395,7 +395,7 @@ We would call this model our final model, and would present it in a table simila
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE,eval=TRUE}
 library(sjPlot);
-out <- sjt.glm(mva.final.glm,no.output=TRUE,boldpvalues=FALSE)
+out <- sjt.glm(mva.final.glm,no.output=TRUE,emph.p=FALSE)
 final.table <- out$data[-1,-6];
 colnames(final.table) <- c("Covariate", "AOR", "Lower 95% CI", "Upper 95% CI", "p-value")
 final.table[,1] <- c("IAC", "Age (per year increase)", "SAPSI [12-14)* (relative to SAPSI<12)", "SAPSI [14-16)*", "SAPSI [16-19)*", "SAPSI [19-32]*", "Atrial Fibrillation", "Stroke", "Malignancy", "Non-COPD Respiratory disease ")
