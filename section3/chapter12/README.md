@@ -1,4 +1,4 @@
-# 3.8 Markov Models and Cost Effectiveness Analysis: Applications in Medical Research
+# 3.12 Improving Patient Cohort Identification Using Natural Language Processing
 
 This directory contains the code and algorithms used in the following publication:
 
