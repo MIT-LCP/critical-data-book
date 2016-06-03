@@ -1,6 +1,6 @@
 # 3.8 Markov Models and Cost Effectiveness Analysis: Applications in Medical Research
 
-This directory contains the code and algorithms used in the following publication:
+This directory contains the code used in the following publication:
 
 Komorowski M. and Raffa J. **Markov Models and Cost Effectiveness Analysis: Applications in Medical Research**, in *Secondary analysis of Electronic Health Record Data*, Springer, [Under Review]
 
