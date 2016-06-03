@@ -14,7 +14,7 @@ The code used in this section of the book is provided to allow users to replicat
 | 3.2 | Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation |   |
 | 3.3 | Instrumental Variable Analysis of Electronic Health Records | R |
 | 3.4 | Mortality prediction in the ICU based on MIMIC-II: Results from the Super ICU Learner Algorithm (SICULA) project |   |
-| 3.5 | Mortality Prediction in the ICU |   |
+| 3.5 | Mortality Prediction in the ICU | SQL, R |
 | 3.6 | Data Fusion Techniques for Early Warning of Clinical Deterioration | SQL, Matlab |
 | 3.7 | Comparative effectiveness: Propensity Score Analysis | SQL, Matlab, R |
 | 3.8 | Markov Models and Cost Effectiveness Analysis: Applications in Medical Research | Matlab |
