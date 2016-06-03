@@ -21,5 +21,5 @@ The code used in this section of the book is provided to allow users to replicat
 | 3.9 | Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs |   |
 | 3.10 | Waveform Analysis to Estimate Respiratory Rate | Matlab |
 | 3.11 | Signal processing: False Alarm Reduction |   |
-| 3.12 | Improving Patient Cohort Identification Using Natural Language Processing |   |
+| 3.12 | Improving Patient Cohort Identification Using Natural Language Processing | SQL |
 | 3.13 | Hyperparameter Selection |   |
