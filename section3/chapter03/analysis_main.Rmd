@@ -1,0 +1,148 @@
+---
+title: "Boarders Analysis Jan 30, 2016"
+output: pdf_document
+---
+
+TODO:
+*Days survived -- add explanation as to why we defined it with 45 days as the cut-off*
+*Show that the % of boarders who become non-boarders later is very small, and the change in this over the years*
+
+We start by importing the data into R.
+
+Patients with a recorded age > 90 in MIMIC-III are assigned random ages greater than 90, so we recode them with age = 90.
+
+Boarders are defined as patients who spent any portion of their ICU stay outside of the MICU.
+
+```{r}
+dat = read.csv("~/Downloads/boarders_periods1-3_LAST_ICU_Jan21_v11.csv", header = TRUE)
+
+dat$icustay_admit_age[which(dat$icustay_admit_age > 90)] <-90
+dat$days_survived[which(dat$days_survived > 45)] <-45
+
+dat$boarder = 0
+dat$boarder[which(dat$icustay_los_boarder > 0)]  <-1
+
+```
+
+We start by defining a data subset *dat_all*. This includes all rows except those with missing or errant data (169 rows excluded [2.0%]).
+
+```{r}
+
+dat_all <- subset(dat, ( !is.na(elixhauser_28day) & 
+                         (los_days_prior_to_icu >= 0) & 
+                         (days_survived >= 0) &
+                         (west_initial_remaining_beds >= 0) 
+                       )
+                 )
+
+nrow(dat)
+nrow(dat_all)
+
+```
+
+Next, we run our instrumental variable analysis using *icustay_expire_flag_mod* (death within 24 hours of the end of the ICU stay) as the outcome, and *west_initial_remaining_beds* (the number of remaining MICU beds) as our instrument. 
+
+Our instrument is controlled for team census size since there is an intuitive inverse relationship between team census size and the number of remaining beds, and it is conceivable that team census size could affect the outcome.
+
+We also control for
+
+* Age
+* Gender
+* Length of hospital stay prior to ICU admission
+* Severity of illness (OASIS)
+* Comorbidities (Elixhauser score)
+* Number of boarders under the care of the MICU
+* Year
+
+```{r}
+
+library(SemiParBIVProbit)
+
+boarder_smooth.eq <- boarder ~ s(west_initial_remaining_beds) + s(icustay_admit_age) + 
+                     gender + s(OASIS) + s(elixhauser_28day) + s(west_initial_team_census) + 
+                     s(west_initial_outboarder_count) + s(los_days_prior_to_icu) + 
+                     factor(transfers.intime_year)
+
+expire_smooth.eq <- icustay_expire_flag_mod ~ boarder + s(icustay_admit_age) + 
+                    gender + s(OASIS) + s(elixhauser_28day) + s(west_initial_team_census) + 
+                    s(west_initial_outboarder_count) + s(los_days_prior_to_icu) + 
+                    factor(transfers.intime_year)
+
+bpN_smooth_ICU_smooth <- SemiParBIVProbit(list(
+  boarder_smooth.eq, 
+  expire_smooth.eq),
+  data = dat_all)
+
+RR(bpN_smooth_ICU_smooth, 'boarder',  n.sim=2000)
+
+```
+
+We also use a Cox proportional hazards model to examine the effect of boarding on survival.
+
+In this first Cox analysis we use *dat_all*, keeping in mind that there exists a strong selection bias in favor of boarders being less acutely ill.
+
+```{r}
+
+library(survival)
+
+dat_all$start = 0
+S <- Surv(
+  time = dat_all$start, 
+  time2 = dat_all$days_survived, 
+  event = dat_all$icustay_expire_flag_mod)
+
+model <- coxph(S ~ boarder + poly(icustay_admit_age, 3) + gender + poly(OASIS, 3) +
+                   poly(elixhauser_28day, 3) + west_initial_team_census + 
+                   west_initial_outboarder_count + los_days_prior_to_icu + 
+                   factor(transfers.intime_year), 
+               data = dat_all )
+
+exp(coef(model))
+exp(confint(model))
+
+```
+
+In the above model, even *without* accounting in any way for the strong selection bias, there is trend toward decreased survival among boarders.
+
+Now, in order to minimize the selection bias present in our sample, we define a data subset *dat_2pop*. This includes only those rows where there were either *no MICU beds available* or *>2 MICU beds available* at the time a patient was admitted or transferred to the ICU (4293 rows excluded [50.9%]). These represent moments in time where there is no selection bias with respect to which patients will become boarders. In the first group (no MICU beds available), *any* new patient will have to become a boarder. In the second group (3 or more MICU beds available), there is no active or impending MICU capacity constraint that would promote boarding.
+
+```{r}
+
+dat_2pop <- subset(dat, ( ( ((west_initial_remaining_beds == 0) & (boarder == 1)) | 
+                            ((west_initial_remaining_beds > 2) & (boarder == 0)) 
+                          ) & 
+                          ( !is.na(elixhauser_28day) &
+                            (los_days_prior_to_icu >= 0) & 
+                            (days_survived >= 0) 
+                          ) 
+                        )
+                   )
+
+nrow(dat)
+nrow(dat_2pop)
+
+```
+
+We now re-run the same Cox proportional hazards model using *dat_2pop*.
+
+```{r}
+
+dat_2pop$start = 0
+S <- Surv(
+  time = dat_2pop$start, 
+  time2 = dat_2pop$days_survived, 
+  event = dat_2pop$icustay_expire_flag_mod)
+
+model <- coxph(S ~ boarder + poly(icustay_admit_age, 3) + gender + poly(OASIS, 3) +
+                   poly(elixhauser_28day, 3) + west_initial_team_census + 
+                   west_initial_outboarder_count + los_days_prior_to_icu + 
+                   factor(transfers.intime_year), 
+               data = dat_2pop )
+
+
+exp(coef(model))
+exp(confint(model))
+
+```
+
+This demonstrates an even stronger effect of boarding on survival. Of note, the result also meets statistical significance.
