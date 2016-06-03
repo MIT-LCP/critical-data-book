@@ -1,6 +1,6 @@
 # 3.3 Instrumental Variable Analysis of Electronic Health Records
 
-This directory contains the code and algorithms used in the following publication:
+This directory contains the code used in the following publication:
 
 Penna N. D. *et al.* **Instrumental Variable Analysis of Electronic Health Records**, in *Secondary analysis of Electronic Health Record Data*, Springer, [Under Review]
 
