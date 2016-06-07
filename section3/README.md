@@ -19,7 +19,7 @@ The code used in this section of the book is provided to allow users to replicat
 | 3.7 | Comparative effectiveness: Propensity Score Analysis | SQL, Matlab, R |  |
 | 3.8 | Markov Models and Cost Effectiveness Analysis: Applications in Medical Research | Matlab |  |
 | 3.9 | Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs | SAS |  |
-| 3.10 | Waveform Analysis to Estimate Respiratory Rate | Matlab |  |
+| 3.10 | Waveform Analysis to Estimate Respiratory Rate | Matlab | &#10004; |
 | 3.11 | Signal processing: False Alarm Reduction |   |  |
 | 3.12 | Improving Patient Cohort Identification Using Natural Language Processing | SQL |  |
 | 3.13 | Hyperparameter Selection |   |  |
