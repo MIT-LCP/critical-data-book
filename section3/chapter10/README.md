@@ -19,7 +19,8 @@ The work presented in this case study can be replicated as follows:
 
 *   Download the code for the book from [here](https://github.com/MIT-LCP/critical-data-book/archive/master.zip). Extract the files by unzipping the directory. Navigate to the _section3/chapter10/_ directory.
 *   Locate the [_MIMICII_data_importer.m_](https://raw.githubusercontent.com/peterhcharlton/RRest/master/RRest_v1.0/Data_Import_Scripts/MIMICII_data_importer.m) script contained within this directory. Modify the _universal parameters_ specified within this script (starting on line 64) to choose the directories where data should be stored.
-*   Run this script to download data from the MIMIC II dataset.
+*   Ensure that you have the WFDB Toolbox for Matlab installed. Installation instructions are available [here](https://physionet.org/physiotools/matlab/wfdb-app-matlab/).
+*   Run this script to download data from the MIMIC II dataset. Note that the data will total XX GB, so this will require sufficient disk space and may take some time.
 *   Perform the analysis using Version 1 of the _RRest_ toolbox of algorithms contained within this directory. To perform the analysis call the main script using the following command: *RRest('mimicii')*
 
 ## Further Resources
