@@ -9,7 +9,7 @@ This section presents twelve case studies of secondary analyses of electronic he
 The code used in this section of the book is provided to allow users to replicate the case studies. You may wish to focus on those case studies which are written in the programming language(s) with which you are most familiar. Here are the programming languages used in each of the case studies:
 
 | Chapter | Title | Programming Languages | Reproducible? |
-|---|---|---|
+|---|---|---|---|
 | 3.1 | Introduction | *none* | NA |
 | 3.2 | Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation |   |  |
 | 3.3 | Instrumental Variable Analysis of Electronic Health Records | R |  |
