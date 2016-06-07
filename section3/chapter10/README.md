@@ -17,6 +17,7 @@ Both the database and code used to evaluate the techniques are publicly availabl
 
 The work presented in this case study can be replicated as follows:
 
+*   Download the code for the book from [here](https://github.com/MIT-LCP/critical-data-book/archive/master.zip).
 *   Download data from the MIMIC II dataset using the script provided <a href="https://raw.githubusercontent.com/peterhcharlton/RRest/master/RRest_v1.0/Data_Import_Scripts/MIMICII_data_importer.m">here</a>.
 *   Use Version 1 of the toolbox of algorithms. To perform the analysis call the main script using the following command: *RRest('mimicii')*
 
