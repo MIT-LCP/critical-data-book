@@ -14,7 +14,7 @@ Since the publication of the original landmark trial detailing the mortality ben
 
 The work presented in this case study can be replicated as follows:
 
-_ original files are required for the following code _
+_original files are required for the following code_
 
 Procedure titles for SAS 9.4
 *	Proc freq – frequency. Allows determination of count, percentage, or frequency of specific categorical variables.

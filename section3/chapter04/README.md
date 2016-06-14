@@ -12,9 +12,7 @@ MIMIC II dataset offers a unique opportunity to develop and validate new severit
 
 ## Replicating this Publication
 
-The work presented in this case study can be replicated as follows:
-
-*insert*
+*This case study used code from the Super Learner Library, implemented in R.*
 
 
 ***

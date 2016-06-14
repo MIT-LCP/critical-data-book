@@ -14,7 +14,7 @@ Sources of variation in treatments received that are exogenous to patients can b
 
 The work presented in this case study can be replicated as follows:
 
-*insert*
+* `analysis_main.Rmd` : The main script
 
 
 ***
