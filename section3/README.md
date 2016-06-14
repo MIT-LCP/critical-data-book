@@ -10,20 +10,20 @@ The code used in this section of the book is provided to allow users to replicat
 
 | Chapter | Title | Programming Languages | Reproducible? |
 |---|---|---|---|
-| 3.1 | Introduction | *none* | NA |
-| 3.2 | Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation |   |  |
-| 3.3 | Instrumental Variable Analysis of Electronic Health Records | R |  |
-| 3.4 | Mortality prediction in the ICU based on MIMIC-II: Results from the Super ICU Learner Algorithm (SICULA) project | R |  |
-| 3.5 | Mortality Prediction in the ICU | SQL, R |  |
-| 3.6 | Data Fusion Techniques for Early Warning of Clinical Deterioration | SQL, Matlab |  |
-| 3.7 | Comparative effectiveness: Propensity Score Analysis | SQL, Matlab, R |  |
-| 3.8 | Markov Models and Cost Effectiveness Analysis: Applications in Medical Research | Matlab |  |
-| 3.9 | Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs | SAS |  |
+| 3.01 | Introduction | *none* | NA |
+| 3.02 | Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation |   |  |
+| 3.03 | Instrumental Variable Analysis of Electronic Health Records | R |  |
+| 3.04 | Mortality prediction in the ICU based on MIMIC-II: Results from the Super ICU Learner Algorithm (SICULA) project | R |  |
+| 3.05 | Mortality Prediction in the ICU | SQL, R |  |
+| 3.06 | Data Fusion Techniques for Early Warning of Clinical Deterioration | SQL, Matlab |  |
+| 3.07 | Comparative effectiveness: Propensity Score Analysis | SQL, Matlab, R |  |
+| 3.08 | Markov Models and Cost Effectiveness Analysis: Applications in Medical Research | Matlab |  |
+| 3.09 | Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs | SAS |  |
 | 3.10 | Waveform Analysis to Estimate Respiratory Rate | Matlab | &#10004; |
 | 3.11 | Signal processing: False Alarm Reduction |   |  |
-| 3.12 | Improving Patient Cohort Identification Using Natural Language Processing | SQL |  |
+| 3.12 | Improving Patient Cohort Identification Using Natural Language Processing | SQL, Python |  |
 | 3.13 | Hyperparameter Selection |   |  |
 
 ## Data
 
-The data used in this section of the book is publicly accessible. All chapters used either MIMIC II or MIMIC III, except for chapter 3.8, which used simulated data.
+The data used in this section of the book is publicly accessible. All chapters used either MIMIC II or MIMIC III, except for chapter 3.08, which used simulated data.

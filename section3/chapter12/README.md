@@ -14,9 +14,25 @@ Retrieving information from structured data tables in a large database may be pe
 
 ## Replicating this Publication
 
-The work presented in this case study can be replicated as follows:
+All the SQL queries to count the number of patients per cohorts as well as the cTAKES XML configuration file used to analyze the notes are provided. Specifically:
 
-*insert*
+* `cohort_diabetic_hemodialysis_icd9_based_count.sql` : Total number of diabetic patients who underwent hemodialysis based on diagnosis codes.
+
+* `cohort_diabetic_hemodialysis_notes_based_count.sql` : List of diabetic patients who underwent hemodialysis based on unstructured clinical notes.
+
+* `cohort_diabetic_hemodialysis_proc_and_notes_based_count.sql` : Total number of diabetic patients who underwent hemodialysis based on unstructured clinical notes and procedure codes.
+
+* `cohort_diabetic_hemodialysis_proc_based_count.sql` : Total number of diabetic patients who underwent hemodialysis based on procedure codes.
+
+* `cohort_diabetic_icd9_based_count_a.sql` : List of diabetic patients based on the ICD-9 codes.
+
+* `cohort_hemodialysis_icd9_based_count_b.sql` : List of patients who underwent hemodialysis based on the ICD-9 codes.
+
+* `cohort_hemodialysis_proc_based_count_c.sql` : Lists number of patients who underwent hemodialysis based on the procedure label.
+
+* `CPE_physician_notes.xml` : cTAKES XML configuration file to process patients' notes. Some paths need to be adapted to the developer's configuration.
+
+* _Python script needs uploading_
 
 
 ***

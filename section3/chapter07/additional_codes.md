@@ -1,0 +1,120 @@
+# Additional codes
+
+The following additional codes are provided, although it's not clear whether or how these should be used:
+
+## Building a regression tree for estimation of propensity scores
+[
+library(twang)
+afib.mnps.ate = mnps(rate.drug.1st ~ 
+                        age + gender + first.icu.unit + ethnicity.simplified +
+                        sofa.score + MAP.before.1st.drug + temp.F + spo2 + hb + 
+                        wbc + plt + hct + na + k + cl + bun + cre + hco3 + glu + 
+                        asthma.icd9 + copd.icd9 + chf.icd9 + ckd.icd9 + liver.dz.elix + 
+                        dm.elix + valvular.dz.icd9 + malignancy.elix + afib.ds.pmh,
+                      data = dataset,
+                      estimand = "ATE",
+                      verbose = FALSE,
+                      stop.method = c('es.mean','es.max','ks.mean','ks.max'),
+                      n.trees = 3500
+)
+]
+
+## Elimination of extreme weights using stabilized weights
+
+[
+dataset$ps_amiodarone = afib.mnps.ate$psList$amiodarone$ps[[1]]
+dataset$ps_diltiazem = afib.mnps.ate$psList$diltiazem$ps[[1]]
+dataset$ps_metoprolol = afib.mnps.ate$psList$metoprolol$ps[[1]]
+#construct stablized weight from individual treatement gouop frequency and PS
+p.amio = sum(dataset$rate.drug.1st=='amiodarone')/nrow(dataset)
+p.dilt = sum(dataset$rate.drug.1st=='diltiazem')/nrow(dataset)
+p.meto = sum(dataset$rate.drug.1st=='metoprolol')/nrow(dataset)
+dataset$sw = ifelse(dataset$rate.drug.1st=='amiodarone', p.amio/dataset$ps_amiodarone ,
+                    ifelse(dataset$rate.drug.1st=='diltiazem', p.dilt/dataset$ps_diltiazem ,
+                           ifelse(dataset$rate.drug.1st=='metoprolol', p.meto/dataset$ps_metoprolol ,
+                                  NA)))
+]
+
+## Final weighted regression model
+
+[
+library(survey)
+
+design1.mnps.ate.sw = svydesign(ids=~1, weights=~sw, data=dataset)
+logi.outcome1.swted.dr = svyglm(need.2nd.agent 
+                                ~ rate.drug.1st + 
+                                  ethnicity.simplified + first.icu.unit + valvular.dz.icd9 + sofa.score + 
+                                  liver.dz.elix + plt, 
+                                family=quasibinomial, 
+                                design = design1.mnps.ate.sw)
+
+summary(logi.outcome1.swted.dr)
+exp(cbind(OR=coef(logi.outcome1.swted.dr),confint(logi.outcome1.swted.dr)))
+
+
+# 2nd outcome of RVR duration, weighted linear regression, doubly robust
+dataset.sub2 = dataset[t(dataset$rate.drugs.num ==1),]
+design.sub2.mnps.ate.sw = svydesign(ids=~1, weights=~sw, data=dataset.sub2)
+linear.outcome2.swted.dr = svyglm(rvr.duration
+                                  ~ rate.drug.1st + 
+                                    ethnicity.simplified + first.icu.unit + valvular.dz.icd9 + sofa.score + 
+                                    liver.dz.elix + plt, 
+                                  design = design.sub2.mnps.ate.sw)
+summary(linear.outcome2.swted.dr)
+]
+
+## Model Validation
+
+[
+# fit logistic regression model on amiodarone(ref)_metoprolol subset
+am.logi.model = glm(rate.drug.1st ~ 
+                      age + gender + first.icu.unit + ethnicity.simplified +
+                      sofa.score + MAP.before.1st.drug + temp.F + spo2 + hb + 
+                      wbc + plt + hct + na + k + cl + bun + cre + hco3 + glu + 
+                      asthma.icd9 + copd.icd9 + chf.icd9 + ckd.icd9 + liver.dz.elix + 
+                      dm.elix + valvular.dz.icd9 + malignancy.elix + afib.ds.pmh, 
+                    family = binomial,
+                    data = dataset.rmna.am)
+
+am.logi.ps = fitted(am.logi.model)
+dataset.rmna.am$ps.meto.pair.logi = am.logi.ps
+dataset.rmna.am$ps.amio.pair.logi = 1-am.logi.ps
+
+## 
+library(Matching)
+dataset.rmna.am$treatment = ifelse(dataset.rmna.am$rate.drug.1st=='amiodarone',0,1)
+
+am.match = Match(Y=dataset.rmna.am$need.2nd.agent,
+                 Tr=dataset.rmna.am$treatment,
+                 X=dataset.rmna.am$ps.meto.pair.logi,
+                 M=1, # one-to-one matching
+                 estimand='ATE',
+                 caliper=0.25,
+                 replace=TRUE)
+summary(am.match)
+
+am.balance = MatchBalance(treatment ~ 
+                            age + gender + first.icu.unit + ethnicity.simplified +
+                            sofa.score + MAP.before.1st.drug + temp.F + spo2 + hb + 
+                            wbc + plt + hct + na + k + cl + bun + cre + hco3 + glu + 
+                            asthma.icd9 + copd.icd9 + chf.icd9 + ckd.icd9 + liver.dz.elix + 
+                            dm.elix + valvular.dz.icd9 + malignancy.elix + afib.ds.pmh,
+                          data=dataset.rmna.am,
+                          match.out=am.match,
+                          nboots=10)
+
+## matched(paired) binary outcome estimation-- Exact McNemar's Test
+meto.outcome = dataset.rmna.am$need.2nd.agent[am.match$index.treated]
+amio.outcome = dataset.rmna.am$need.2nd.agent[am.match$index.control]
+#                Test
+#Control      Fail Pass
+#        Fail  a    b
+#        Pass  c    d
+a = sum(meto.outcome==1 & amio.outcome ==1)
+b = sum(meto.outcome==0 & amio.outcome ==1)
+c = sum(meto.outcome==1 & amio.outcome ==0)
+d = sum(meto.outcome==0 & amio.outcome ==0)
+b/c # odds ratio for needing 2nd agent
+mcnemar.test(matrix(c(a,b,c,d),2,2)) #calculating p-value
+]
+

@@ -14,7 +14,19 @@ In this chapter, we use a case study conducted using the MIMIC-II database, “E
 
 The work presented in this case study can be replicated as follows:
 
-*insert*
+* Patient Identification: the corresponding code is presented in Section 2.2.
+
+* Calculation of time between onset of Atrial Fibrillation with RVR and RVR resolution : the corresponding code is presented (in truncated version) in Section 2.2. Please see the appendix for complete codes. _this isn't clear: which appendix?_
+
+* `Afib_case_study_database_query.sql` : used to extract data from the MIMIC II database.
+
+* `Afib_case_study_extraction_code.m` : used to extract variables for analysis.
+
+* `propensity_score_analysis.r` : used for propensity score analysis.
+
+* `propensity_score_matching.r` : used for propensity score matching.
+
+* _additional codes are provided in `additional_codes.txt` - it's not clear whether or how these should be used_
 
 
 ***

@@ -15,6 +15,7 @@ Algorithms for identification of deteriorating patients from electronic health r
 The work presented in this case study can be replicated as follows:
 
 *   Extract data from the MIMIC II dataset using the SQL scripts provided <a href="https://github.com/peterhcharlton/detect/tree/master/MIMICII_Tutorial/data_extraction">here</a>.
+
 *   Perform the analysis using the algorithms provided <a href="https://github.com/peterhcharlton/detect/tree/master/MIMICII_Tutorial/data_processing">here</a>. Call the main script using the following command: *RunFusionAnalysis*
 
 
