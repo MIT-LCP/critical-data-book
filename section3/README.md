@@ -11,7 +11,7 @@ The code used in this section of the book is provided to allow users to replicat
 | Chapter | Title | Programming Languages | Reproducible? |
 |---|---|---|---|
 | 3.01 | Introduction | *none* | NA |
-| 3.02 | Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation |   |  |
+| 3.02 | Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation | SAS |  |
 | 3.03 | Instrumental Variable Analysis of Electronic Health Records | R |  |
 | 3.04 | Mortality prediction in the ICU based on MIMIC-II: Results from the Super ICU Learner Algorithm (SICULA) project | R |  |
 | 3.05 | Mortality Prediction in the ICU | SQL, R |  |

@@ -1,8 +1,13 @@
-# Additional codes
+Additional codes
+----------------
 
 The following additional codes are provided, although it's not clear whether or how these should be used:
 
-## Building a regression tree for estimation of propensity scores
+
+Building a regression tree for estimation of propensity scores
+--------------------------------------------------------------
+
+
 [
 library(twang)
 afib.mnps.ate = mnps(rate.drug.1st ~ 
@@ -35,7 +40,9 @@ dataset$sw = ifelse(dataset$rate.drug.1st=='amiodarone', p.amio/dataset$ps_amiod
                                   NA)))
 ]
 
-## Final weighted regression model
+Final weighted regression model
+-------------------------------
+
 
 [
 library(survey)
@@ -63,7 +70,9 @@ linear.outcome2.swted.dr = svyglm(rvr.duration
 summary(linear.outcome2.swted.dr)
 ]
 
-## Model Validation
+Model Validation
+----------------
+
 
 [
 # fit logistic regression model on amiodarone(ref)_metoprolol subset
