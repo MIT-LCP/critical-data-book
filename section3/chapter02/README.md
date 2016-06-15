@@ -1,4 +1,4 @@
-# 3.6 Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation
+# 3.2 Trend Analysis: Evolution of tidal volume over time for patients receiving invasive mechanical ventilation
 
 This directory contains the code and algorithms used in the following publication:
 
