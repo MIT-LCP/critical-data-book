@@ -1,6 +1,6 @@
 # Section 3: Case Studies
 
-## Summary
+## Summary of Section 3
 
 This section presents twelve case studies of secondary analyses of electronic health records. The case studies cover a range of research areas: from analysis of organisational change over a period of years to assessment of the clinical effectiveness of specific interventions; from prediction of patient outcomes to continuous estimation of physiological parameters. The range of methodologies demonstrated is no less broad: from machine learning techniques to propensity score matching; from natural language processing to physiological signal processing. Approaches to commonly encountered hurdles such as patient cohort identification and outcome extraction are illustrated on publicly available data, with analytical code supplied. Consequently, the case studies form a valuable resource for clinicians and data scientists, beginners and experts alike.
 
@@ -20,9 +20,9 @@ The code used in this section of the book is provided to allow users to replicat
 | 3.08 | Markov Models and Cost Effectiveness Analysis: Applications in Medical Research | Matlab |  |
 | 3.09 | Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs | SAS |  |
 | 3.10 | Waveform Analysis to Estimate Respiratory Rate | Matlab | &#10004; |
-| 3.11 | Signal processing: False Alarm Reduction |   |  |
+| 3.11 | Signal processing: False Alarm Reduction | None |  |
 | 3.12 | Improving Patient Cohort Identification Using Natural Language Processing | SQL, Python |  |
-| 3.13 | Hyperparameter Selection |   |  |
+| 3.13 | Hyperparameter Selection | None |  |
 
 ## Data
 
