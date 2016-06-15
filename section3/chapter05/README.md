@@ -14,7 +14,9 @@ This case study describes how to construct mortality prediction models using typ
 
 The work presented in this case study can be replicated as follows:
 
-*insert*
+* `query.sql` : used to extract data from the MIMIC II database.
+
+* `analysis.R` : used to perform data processing
 
 
 ***

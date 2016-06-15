@@ -4,7 +4,7 @@ This directory contains the code used in the following publication:
 
 Lehman L. H. *et al.* **Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs*, Springer, [Under Review]
 
-Code is provided in *insert* format.
+Code is provided in SAS format.
 
 ## Summary of Publication
 
