@@ -1,5 +1,5 @@
-function [data_in] = inpute_regression(type,data_in,constraint,indx_class)
-% This function inputes data using the mean
+function [data_in] = impute_regression(type,data_in,constraint,indx_class)
+% This function imputes data using the mean
 % the function use is nanmean because it ignores the NaN
 % The data must be already separate by class
 missing_all=ismissing(data_in);
@@ -12,7 +12,7 @@ data_class = data_class(~any(ismissing(data_class),2),:);
 indx_i=and(missing_all,repmat(indx_class,1,ncol));
 auxiter=sum(indx_i);
 for i=find(auxiter)
-    [data_in_aux] = inpute_value(@nanmean,data_in,constraint,indx_class);
+    [data_in_aux] = impute_value(@nanmean,data_in,constraint,indx_class);
     switch type
         case 'linear'
             % regress function removes all the NaN rows

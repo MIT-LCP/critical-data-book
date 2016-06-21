@@ -82,32 +82,32 @@ clear IAC_05 IAC_10 IAC_20
 
 
 %% Mean
-% seprate decides if the inpute function will be applied to each class (=1)
+% seprate decides if the impute function will be applied to each class (=1)
 % or to all the data
 separate = 1; 
 inp_case = 'mean';
-data_in_new= data_inpute(inp_case,IAC_40,IAC_out,separate,constraint);
+data_in_new= data_impute(inp_case,IAC_40,IAC_out,separate,constraint);
 
-clear inpute_func
+clear impute_func
 %% Median 
 separate = 1;
 inp_case = 'median';
-data_in_new= data_inpute(inp_case,IAC_40,IAC_out,separate,constraint);
+data_in_new= data_impute(inp_case,IAC_40,IAC_out,separate,constraint);
 
 %% Linear regression
 separate = 1;
 inp_case = 'linear';
-data_in_new= data_inpute(inp_case,IAC_05,IAC_out,separate,constraint);
+data_in_new= data_impute(inp_case,IAC_05,IAC_out,separate,constraint);
 
 %% Quadratic regression
 separate = 1;
 inp_case = 'quadratic';
-data_in_new= data_inpute(inp_case,IAC_40,IAC_out,separate,constraint);
+data_in_new= data_impute(inp_case,IAC_40,IAC_out,separate,constraint);
 
 %% Hotdeck
 separate = 1;
 inp_case = 'hotdeck';
-data_in_new= data_inpute(inp_case,IAC_40,IAC_out,separate,constraint);
+data_in_new= data_impute(inp_case,IAC_40,IAC_out,separate,constraint);
 
 %% Logistic regression
 

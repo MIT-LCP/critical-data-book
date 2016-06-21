@@ -136,7 +136,7 @@ for i=methodindex
         for j=1:1:length(perc)% cycle for the different percentages of missingness
             rng(163+i)
             data_in = IAC_M{1,j};
-            data_in_new{i,j}= data_inpute(method{i},data_in,data_out,separate,constraint);
+            data_in_new{i,j}= data_impute(method{i},data_in,data_out,separate,constraint);
         end
     catch
     end
@@ -160,7 +160,7 @@ for i=methodindex
         for j=1:1:length(perc)% cycle for the different percentages of missingness
             rng(163+i)
             data_in = NIAC_M{1,j};
-            data_in_new{i,j}= data_inpute(method{i},data_in,data_out,separate,constraint);
+            data_in_new{i,j}= data_impute(method{i},data_in,data_out,separate,constraint);
         end
     catch
     end
@@ -331,7 +331,7 @@ for i=methodindex
         for j=1:1:5% cycle for the different percentages of missingness
             rng(163+i)
             data_in = IAC_M{1,j};
-            data_in_new{i,j}= data_inpute(method{i},data_in,data_out,separate,constraint);
+            data_in_new{i,j}= data_impute(method{i},data_in,data_out,separate,constraint);
         end
     catch
     end
@@ -380,7 +380,7 @@ for i=methodindex
         for j=1:1:5% cycle for the different percentages of missingness
             rng(163+i)
             data_in = NIAC_M{1,j};
-            data_in_new{i,j}= data_inpute(method{i},data_in,data_out,separate,constraint);
+            data_in_new{i,j}= data_impute(method{i},data_in,data_out,separate,constraint);
         end
     catch
     end

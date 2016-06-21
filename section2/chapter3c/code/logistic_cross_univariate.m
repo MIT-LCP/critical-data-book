@@ -9,7 +9,7 @@ for i = 1:num_folds
     if strcmp(method,'fulldata')
         data_in_new=data_in(train,:);
     else
-        data_in_new= data_inpute(method,data_in(train,:),data_out(train),separate,constraint);
+        data_in_new= data_impute(method,data_in(train,:),data_out(train),separate,constraint);
     end
     
     if sum(sum(ismissing(data_in_new)))

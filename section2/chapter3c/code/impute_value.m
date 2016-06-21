@@ -1,5 +1,5 @@
-function [data_in] = inpute_value(func,data_in,constraint,indx_class)
-% This function inputes data using the mean
+function [data_in] = impute_value(func,data_in,constraint,indx_class)
+% This function imputes data using the mean
 % the function use is nanmean because it ignores the NaN
 % The data must be already separate by class
 missing=ismissing(data_in);

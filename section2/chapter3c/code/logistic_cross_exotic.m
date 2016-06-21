@@ -24,7 +24,7 @@ for i = 1:num_folds
             end
         end
         if token1 > 0
-            data_in_new= data_inpute(method,data_in(train,:),data_out(train),separate,constraint);
+            data_in_new= data_impute(method,data_in(train,:),data_out(train),separate,constraint);
         else
             token2(i) = 1;
         end
