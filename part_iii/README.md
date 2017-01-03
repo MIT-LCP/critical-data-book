@@ -1,6 +1,6 @@
-# Section 3: Case Studies
+# Part III. Case Studies
 
-## Summary of Section 3
+## Summary of Part III
 
 This section presents twelve case studies of secondary analyses of electronic health records. The case studies cover a range of research areas: from analysis of organisational change over a period of years to assessment of the clinical effectiveness of specific interventions; from prediction of patient outcomes to continuous estimation of physiological parameters. The range of methodologies demonstrated is no less broad: from machine learning techniques to propensity score matching; from natural language processing to physiological signal processing. Approaches to commonly encountered hurdles such as patient cohort identification and outcome extraction are illustrated on publicly available data, with analytical code supplied. Consequently, the case studies form a valuable resource for clinicians and data scientists, beginners and experts alike.
 
