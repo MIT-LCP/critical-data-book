@@ -1,71 +1,68 @@
-\[Afib query code\] by \[MATLAB\]
+% [Afib query code] by [MATLAB]
 
 %This is a detailed example of processing primitive data for ‘hidden’
-exposures. Since atrial fibrillation with rapid ventricular
-response(AfibRVR) is not a defined variable/event in the database,
-recognition of these event requires a separate algorithm to combine
-multiple information and conditions. In this case, we chose Matlab to
-develop a sophisticated algorithm that recognize an event that meets
-multiple criteria, including heart rate(HR) over 110 beats/min, received
-rate control medication when the HR is over 110, HR is over 110 for a
-substantial time, HR subsequently under control over a substantial time.
+% exposures. Since atrial fibrillation with rapid ventricular
+% response(AfibRVR) is not a defined variable/event in the database,
+% recognition of these event requires a separate algorithm to combine
+% multiple information and conditions. In this case, we chose Matlab to
+% develop a sophisticated algorithm that recognize an event that meets
+% multiple criteria, including heart rate(HR) over 110 beats/min, received
+% rate control medication when the HR is over 110, HR is over 110 for a
+% substantial time, HR subsequently under control over a substantial time.
 
 %% make dataset matrix, adjust column number
 
-dataset = zeros( length(med\_s), 21 );
+dataset = zeros( length(med_s), 21 );
 
 % error tolerance variable control
 
-% this controls the time window of looking for HR &gt;=110 around the
-1st\_drug time
+% this controls the time window of looking for HR >=110 around the 1st_drug time
 
-find\_rvr\_window = datenum(\[0 0 0 2 0 0\]);
+find_rvr_window = datenum([0 0 0 2 0 0]);
 
-% this controls the time window of looking for drugs administered around
-the RVR episode
+% this controls the time window of looking for drugs administered around the RVR episode
 
-find\_drug\_window = datenum(\[0 0 0 2 0 0\]);
+find_drug_window = datenum([0 0 0 2 0 0]);
 
-%This part cleans up the HR data. Although HR data is a structured data
-by definition, several reasons make this data look like an unstructured
-data, including the fact that one patient could have thousands of HR
-data, HR being highly variable as well as missing or incomplete
-recording of HR.
+% This part cleans up the HR data. Although HR data is a structured data
+% by definition, several reasons make this data look like an unstructured
+% data, including the fact that one patient could have thousands of HR
+% data, HR being highly variable as well as missing or incomplete
+% recording of HR.
 
-\[\~,index\]=unique(HR\_data\_ts\_sorted(:,12),'stable');
+[~,index]=unique(HR_data_ts_sorted(:,12),'stable');
 
-HR\_data\_ts\_sorted = HR\_data\_ts\_sorted(sort(index),:);
+HR_data_ts_sorted = HR_data_ts_sorted(sort(index),:);
 
 % HR data(value and tn) interpolation
 
-% added for revised\_new\_strategy
+% added for revised_new_strategy
 
-HR\_dn = HR\_data\_ts\_sorted(:,12);
+HR_dn = HR_data_ts_sorted(:,12);
 
-HR\_val = HR\_data\_ts\_sorted(:,4);
+HR_val = HR_data_ts_sorted(:,4);
 
-min\_step = datenum(\[0 0 0 0 5 0\]); % ASSUMING MINS!!!
+min_step = datenum([0 0 0 0 5 0]); % ASSUMING MINS!!!
 
-HR\_dn\_new = HR\_dn(1):min\_step:HR\_dn(end);
+HR_dn_new = HR_dn(1):min_step:HR_dn(end);
 
-HR\_val\_new = interp1(HR\_dn,HR\_val,HR\_dn\_new,'linear');
+HR_val_new = interp1(HR_dn,HR_val,HR_dn_new,'linear');
 
-interpolated\_HR\_m =\[HR\_val\_new', HR\_dn\_new'\];
+interpolated_HR_m =[HR_val_new', HR_dn_new'];
 
-% \*\*\*\*\*now you have all the data of this\_subject needed for
-analysis\*\*\*\*\*
+% \*\*\*\*\*now you have all the data of this_subject needed for analysis\*\*\*\*\*
 
 else
 
-meds\_data\_ts\_sorted = \[\];
+meds_data_ts_sorted = [];
 
-vaso\_data\_ts\_sorted = \[\];
+vaso_data_ts_sorted = [];
 
-HR\_data\_ts\_sorted = \[nan,nan,this\_s\];
+HR_data_ts_sorted = [nan,nan,this_s];
 
-first\_drug = nan;
+first_drug = nan;
 
-first\_drug\_dn = nan;
+first_drug_dn = nan;
 
 end
 
@@ -73,184 +70,182 @@ end
 
 % % % % % % % % % % % % % % % % % % % % % % % %
 
-%\*\*\*\*\*\*\*\*\_Core\_Algorithm
+%\*\*\*\*\*\*\*\*_Core_Algorithm
 
-—Recognize a substantial RVR event\_\*\*\*\*\*\*\*\*\*
+% —Recognize a substantial RVR event_\*\*\*\*\*\*\*\*\*
 
-check\_hr\_start\_dn = first\_drug\_dn - find\_rvr\_window;
+check_hr_start_dn = first_drug_dn - find_rvr_window;
 
-check\_hr\_stop\_dn = first\_drug\_dn + find\_rvr\_window;
+check_hr_stop_dn = first_drug_dn + find_rvr_window;
 
-within\_check\_index = find(check\_hr\_start\_dn &lt;=
-interpolated\_HR\_m(:,2) & interpolated\_HR\_m(:,2) &lt;=
-check\_hr\_stop\_dn );
+within_check_index = find(check_hr_start_dn <=
+interpolated_HR_m(:,2) & interpolated_HR_m(:,2) <=
+check_hr_stop_dn );
 
-interpolated\_HR\_m\_within\_check =
-interpolated\_HR\_m(within\_check\_index,:);
+interpolated_HR_m_within_check =
+interpolated_HR_m(within_check_index,:);
 
-first\_rvr\_within\_check\_i = find(
-(interpolated\_HR\_m\_within\_check(:,1)&gt;=110)==1, 1 ); % find the
-first hr\_tn where HR&gt;=110 within the checking period
+first_rvr_within_check_i = find(
+(interpolated_HR_m_within_check(:,1)>=110)==1, 1 ); % find the first hr_tn where HR>=110 within the checking period
 
 % syntax: find(A,1) A: condition
 
-if \~isempty(first\_rvr\_within\_check\_i)
+if ~isempty(first_rvr_within_check_i)
 
-rvr\_start\_dn = interpolated\_HR\_m\_within\_check(
-first\_rvr\_within\_check\_i ,2);
+rvr_start_dn = interpolated_HR_m_within_check(
+first_rvr_within_check_i ,2);
 
-rvr\_start\_i = find( interpolated\_HR\_m(:,2)==rvr\_start\_dn );
+rvr_start_i = find( interpolated_HR_m(:,2)==rvr_start_dn );
 
-rvr\_start\_HR = interpolated\_HR\_m(rvr\_start\_i,1);
+rvr_start_HR = interpolated_HR_m(rvr_start_i,1);
 
 else
 
-rvr\_start\_dn =nan;
+rvr_start_dn =nan;
 
-rvr\_start\_i = nan;
+rvr_start_i = nan;
 
-rvr\_start\_HR = nan;
+rvr_start_HR = nan;
 
 end
 
 % find the end of RVR per criteria 3b
 
-% asign value to controlled\_for\_4hour label
+% asign value to controlled_for_4hour label
 
-if \~isnan(rvr\_start\_i)
+if ~isnan(rvr_start_i)
 
-check\_end = find( interpolated\_HR\_m(rvr\_start\_i:end,1)&lt;110 );
+check_end = find( interpolated_HR_m(rvr_start_i:end,1)<110 );
 
-check\_rvr\_end\_points\_i = check\_end + (rvr\_start\_i-1);
+check_rvr_end_points_i = check_end + (rvr_start_i-1);
 
-if \~isempty(check\_end)
+if ~isempty(check_end)
 
-for j = 1:length(check\_rvr\_end\_points\_i)
+for j = 1:length(check_rvr_end_points_i)
 
-if check\_rvr\_end\_points\_i(j)+47&lt;=length(interpolated\_HR\_m)
+if check_rvr_end_points_i(j)+47<=length(interpolated_HR_m)
 
-if nnz( interpolated\_HR\_m(
-check\_rvr\_end\_points\_i(j):check\_rvr\_end\_points\_i(j)+47 ,1)
-&gt;=110 )&lt;=5
+if nnz( interpolated_HR_m(
+check_rvr_end_points_i(j):check_rvr_end_points_i(j)+47 ,1)
+>=110 )<=5
 
-rvr\_end\_i = check\_rvr\_end\_points\_i(j);
+rvr_end_i = check_rvr_end_points_i(j);
 
-rvr\_end\_dn = interpolated\_HR\_m(rvr\_end\_i,2);
+rvr_end_dn = interpolated_HR_m(rvr_end_i,2);
 
-controlled\_for\_4hour = 1; %dataset column 5 output
-
-break
-
-end
-
-elseif check\_rvr\_end\_points\_i(j)+47 &gt; length(interpolated\_HR\_m)
-
-if nnz( interpolated\_HR\_m( check\_rvr\_end\_points\_i(j):end,1)
-&gt;=110 )&lt;= (length(interpolated\_HR\_m) -
-length(interpolated\_HR\_m(1:check\_rvr\_end\_points\_i(j))))/10
-
-rvr\_end\_i = check\_rvr\_end\_points\_i(j);
-
-rvr\_end\_dn = interpolated\_HR\_m(rvr\_end\_i,2);
-
-controlled\_for\_4hour=0.5; %dataset column 5 output
+controlled_for_4hour = 1; %dataset column 5 output
 
 break
 
 end
 
-end
+elseif check_rvr_end_points_i(j)+47 > length(interpolated_HR_m)
 
-rvr\_end\_i=nan;
+if nnz( interpolated_HR_m( check_rvr_end_points_i(j):end,1)
+>=110 )<= (length(interpolated_HR_m) -
+length(interpolated_HR_m(1:check_rvr_end_points_i(j))))/10
 
-rvr\_end\_dn=nan;
+rvr_end_i = check_rvr_end_points_i(j);
 
-controlled\_for\_4hour=0; %dataset column 5 output
+rvr_end_dn = interpolated_HR_m(rvr_end_i,2);
 
-end
+controlled_for_4hour=0.5; %dataset column 5 output
 
-elseif isempty(check\_end)
-
-rvr\_end\_i=nan;
-
-rvr\_end\_dn=nan;
-
-controlled\_for\_4hour=0; %dataset column 5 output
+break
 
 end
 
-elseif isnan(rvr\_start\_i)
+end
 
-rvr\_end\_i=nan;
+rvr_end_i=nan;
 
-rvr\_end\_dn=nan;
+rvr_end_dn=nan;
 
-controlled\_for\_4hour=nan; %dataset column 5 output
+controlled_for_4hour=0; %dataset column 5 output
 
 end
 
-% get rvr\_duration, if no true end of RVR identified previously, take
+elseif isempty(check_end)
+
+rvr_end_i=nan;
+
+rvr_end_dn=nan;
+
+controlled_for_4hour=0; %dataset column 5 output
+
+end
+
+elseif isnan(rvr_start_i)
+
+rvr_end_i=nan;
+
+rvr_end_dn=nan;
+
+controlled_for_4hour=nan; %dataset column 5 output
+
+end
+
+% get rvr_duration, if no true end of RVR identified previously, take
 
 % the last HR record tn for calculating the duration
 
-if \~isnan(rvr\_start\_dn) && \~isnan(rvr\_end\_dn)
+if ~isnan(rvr_start_dn) && ~isnan(rvr_end_dn)
 
-rvr\_duration = etime( datevec(rvr\_end\_dn) , datevec(rvr\_start\_dn)
+rvr_duration = etime( datevec(rvr_end_dn) , datevec(rvr_start_dn)
 )/60.0; %dataset column 4 output
 
-elseif \~isnan(rvr\_start\_dn) && isnan(rvr\_end\_dn)
+elseif ~isnan(rvr_start_dn) && isnan(rvr_end_dn)
 
-rvr\_duration = etime( datevec(interpolated\_HR\_m(end,2)) ,
-datevec(rvr\_start\_dn) )/60.0; %dataset column 4 output
+rvr_duration = etime( datevec(interpolated_HR_m(end,2)) ,
+datevec(rvr_start_dn) )/60.0; %dataset column 4 output
 
 else
 
-rvr\_duration = nan; %dataset column 4 output
+rvr_duration = nan; %dataset column 4 output
 
 end
 
-% find data only within the rvr episode( error tolerance time window
-considered )
+% find data only within the rvr episode( error tolerance time window considered )
 
-find\_drug\_start\_dn = rvr\_start\_dn - find\_drug\_window;
+find_drug_start_dn = rvr_start_dn - find_drug_window;
 
-find\_drug\_end\_dn = rvr\_end\_dn + find\_drug\_window;
+find_drug_end_dn = rvr_end_dn + find_drug_window;
 
-if \~isnan(rvr\_start\_dn) && \~isnan(rvr\_end\_dn)
+if ~isnan(rvr_start_dn) && ~isnan(rvr_end_dn)
 
-meds\_withinrvr\_index = find(find\_drug\_start\_dn
-&lt;=meds\_data\_ts\_sorted(:,11) & meds\_data\_ts\_sorted(:,11) &lt;=
-find\_drug\_end\_dn );
+meds_withinrvr_index = find(find_drug_start_dn
+<=meds_data_ts_sorted(:,11) & meds_data_ts_sorted(:,11) <=
+find_drug_end_dn );
 
-meds\_data\_ts\_withinrvr =
-meds\_data\_ts\_sorted(meds\_withinrvr\_index,:);
+meds_data_ts_withinrvr =
+meds_data_ts_sorted(meds_withinrvr_index,:);
 
-vaso\_withinrvr\_index = find( find\_drug\_start\_dn
-&lt;=vaso\_data\_ts\_sorted(:,11) & vaso\_data\_ts\_sorted(:,11) &lt;=
-find\_drug\_end\_dn );
+vaso_withinrvr_index = find( find_drug_start_dn
+<=vaso_data_ts_sorted(:,11) & vaso_data_ts_sorted(:,11) <=
+find_drug_end_dn );
 
-vaso\_data\_ts\_withinrvr =
-vaso\_data\_ts\_sorted(vaso\_withinrvr\_index,:);
+vaso_data_ts_withinrvr =
+vaso_data_ts_sorted(vaso_withinrvr_index,:);
 
-elseif \~isnan(rvr\_start\_dn) && isnan(rvr\_end\_dn)
+elseif ~isnan(rvr_start_dn) && isnan(rvr_end_dn)
 
-meds\_withinrvr\_index = find(find\_drug\_start\_dn
-&lt;=meds\_data\_ts\_sorted(:,11) );
+meds_withinrvr_index = find(find_drug_start_dn
+<=meds_data_ts_sorted(:,11) );
 
-meds\_data\_ts\_withinrvr =
-meds\_data\_ts\_sorted(meds\_withinrvr\_index,:);
+meds_data_ts_withinrvr =
+meds_data_ts_sorted(meds_withinrvr_index,:);
 
-vaso\_withinrvr\_index = find( find\_drug\_start\_dn
-&lt;=vaso\_data\_ts\_sorted(:,11) );
+vaso_withinrvr_index = find( find_drug_start_dn
+<=vaso_data_ts_sorted(:,11) );
 
-vaso\_data\_ts\_withinrvr =
-vaso\_data\_ts\_sorted(vaso\_withinrvr\_index,:);
+vaso_data_ts_withinrvr =
+vaso_data_ts_sorted(vaso_withinrvr_index,:);
 
 else
 
-meds\_data\_ts\_withinrvr =\[\];
+meds_data_ts_withinrvr =[];
 
-vaso\_data\_ts\_withinrvr =\[\];
+vaso_data_ts_withinrvr =[];
 
 end
 
