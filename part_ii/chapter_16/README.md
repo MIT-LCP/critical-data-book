@@ -1,4 +1,4 @@
-# Section 2 Chapter 5: Data Analysis
+# Chapter 16. Data Analysis
 
 Authors: Jesse D. Raffa, Marzyeh Ghassemi, Tristan Naumann, Mengling Feng and Douglas Hsu
 

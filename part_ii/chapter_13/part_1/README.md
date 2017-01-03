@@ -1,4 +1,4 @@
-# Section 2 chapter 3
+# Chapter 13. Missing Data (Part 1).
 
 *Note: the dataset (aline.mat) was not committed.*  
 

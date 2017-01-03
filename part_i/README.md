@@ -1,8 +1,8 @@
-# Part II. Setting the Stage: Rationale Behind and Challenges to Health Data Analysis
+# Part I. Setting the Stage: Rationale Behind and Challenges to Health Data Analysis
 
 ## Summary of Part I
 
--- to follow
+Part I of the textbook discusses challenges and opportunities in the secondary analysis of routinely collected health data.
 
 ## Code
 

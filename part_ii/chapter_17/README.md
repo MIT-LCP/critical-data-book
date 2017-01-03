@@ -1,1 +1,1 @@
-# section 2 chapter 6
+# Chapter 17. Defining the Patient Cohort.

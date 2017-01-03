@@ -26,4 +26,4 @@ The code used in this section of the book is provided to allow users to replicat
 
 ## Data
 
-The data used in this section of the book is publicly accessible. All chapters used either MIMIC II or MIMIC III, except for chapter 3.08, which used simulated data.
+The data used in this section of the book is publicly accessible. All chapters used either MIMIC-II or MIMIC-III, except for chapter 3.08, which used simulated data.
