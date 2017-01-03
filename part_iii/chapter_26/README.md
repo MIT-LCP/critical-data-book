@@ -1,4 +1,4 @@
-# 3.10 Waveform Analysis to Estimate Respiratory Rate
+# Chapter 26. Waveform Analysis to Estimate Respiratory Rate
 
 This directory contains the code and algorithms used in the following publication:
 

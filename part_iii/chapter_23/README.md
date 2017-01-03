@@ -1,4 +1,4 @@
-# 3.7 Comparative effectiveness: Propensity Score Analysis
+# Chapter 23. Comparative effectiveness: Propensity Score Analysis
 
 This directory contains the code used in the following publication:
 

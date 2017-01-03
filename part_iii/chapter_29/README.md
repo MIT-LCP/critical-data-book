@@ -1,4 +1,4 @@
-# 3.13 Hyperparameter Selection
+# Chapter 29. Hyperparameter Selection
 
 This directory contains the code used in the following publication:
 

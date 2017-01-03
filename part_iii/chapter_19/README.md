@@ -1,4 +1,4 @@
-# 3.3 Instrumental Variable Analysis of Electronic Health Records
+# Chapter 19. Instrumental Variable Analysis of Electronic Health Records
 
 This directory contains the code used in the following publication:
 

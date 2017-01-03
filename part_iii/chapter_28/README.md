@@ -1,4 +1,4 @@
-# 3.12 Improving Patient Cohort Identification Using Natural Language Processing
+# Chapter 28. Improving Patient Cohort Identification Using Natural Language Processing
 
 This directory contains the code and algorithms used in the following publication:
 

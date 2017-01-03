@@ -1,4 +1,4 @@
-# 3.4 Mortality prediction in the ICU based on MIMIC-II: Results from the Super ICU Learner Algorithm (SICULA) project
+# Chapter 20. Mortality prediction in the ICU based on MIMIC-II: Results from the Super ICU Learner Algorithm (SICULA) project
 
 This directory contains the code used in the following publication:
 

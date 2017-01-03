@@ -1,4 +1,4 @@
-# 3.5 Mortality Prediction in the ICU
+# Chapter 21. Mortality Prediction in the ICU
 
 This directory contains the code used in the following publication:
 

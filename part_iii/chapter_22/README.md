@@ -1,4 +1,4 @@
-# 3.6 Data Fusion Techniques for Early Warning of Clinical Deterioration
+# Chapter 22. Data Fusion Techniques for Early Warning of Clinical Deterioration
 
 This directory contains the code and algorithms used in the following publication:
 

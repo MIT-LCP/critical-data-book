@@ -1,4 +1,4 @@
-# 3.9 Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs
+# Chapter 25. Blood Pressure and the Risk of Acute Kidney Injury in the ICU: Case-Control vs. Case-Crossover Designs
 
 This directory contains the code used in the following publication:
 

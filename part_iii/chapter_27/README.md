@@ -1,4 +1,4 @@
-# 3.11 Signal processing: False Alarm Reduction
+# Chapter 27. Signal processing: False Alarm Reduction
 
 This directory contains the code used in the following publication:
 

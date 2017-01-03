@@ -1,4 +1,4 @@
-# 3.8 Markov Models and Cost Effectiveness Analysis: Applications in Medical Research
+# Chapter 24. Markov Models and Cost Effectiveness Analysis: Applications in Medical Research
 
 This directory contains the code used in the following publication:
 
