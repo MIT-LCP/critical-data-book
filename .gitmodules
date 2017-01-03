@@ -1,3 +1,3 @@
 [submodule "section2/chapter5/r-package"]
-	path = part_ii/chapter16/r-package
+	path = part_ii/chapter_16/r-package
 	url = git@github.com:jraffa/MIMICbook.git
