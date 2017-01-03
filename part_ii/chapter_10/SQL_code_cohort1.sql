@@ -1,17 +1,14 @@
-\[code\]
+-- SQL
 
-create table aline\_mimic\_cohort\_feb14 as
+CREATE TABLE aline_mimic_cohort_feb14 AS
 
-with population as
-
-(select subject\_id, hadm\_id, icustay\_id, icustay\_intime
-
-from mimic2v26.icustay\_detail
-
-where SUBJECT\_ICUSTAY\_SEQ=1
-
-and ICUSTAY\_AGE\_GROUP='adult'
-
-and hadm\_id is not null
-
+WITH population AS
+    (SELECT subject_id, hadm_id, icustay_id, icustay_intime
+     FROM icustay_detail
+     WHERE subject_icustay_seq=1
+     AND icustay_age_group='adult'
+     AND hadm_id IS NOT NULL
 )
+
+SELECT *
+FROM population

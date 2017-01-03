@@ -1,1387 +1,973 @@
-\[Query algorithms for structured data in MIMIC II are performed using
-\[Oracle SQL\].
+-- SQL
 
-create materialized view ppi\_mag\_cohort as
+create materialized view ppi_mag_cohort AS
 
 -- Get the first ICU stay of each adult
 
-with first\_admissions as
-
-(select icud.subject\_id,
-
-icud.hadm\_id as first\_hadm\_id,
-
-icud.icustay\_id as first\_icustay\_id,
-
-icud.hospital\_admit\_dt as first\_hadm\_admit\_dt,
-
-icud.hospital\_disch\_dt as first\_hadm\_disch\_dt,
-
-icud.icustay\_intime as first\_icustay\_intime,
-
-icud.icustay\_outtime as first\_icustay\_outtime,
-
-extract(day from icud.icustay\_intime-icud.hospital\_admit\_dt) as
-days\_btw\_hosp\_icu\_admit,
-
-extract(day from icud.hospital\_disch\_dt-icud.icustay\_outtime) as
-days\_btw\_hosp\_icu\_disch,
-
-icud.icustay\_expire\_flg as icu\_mort\_first\_admission,
-
-icud.hospital\_expire\_flg as hosp\_mort\_first\_admission,
-
-d.admission\_source\_descr as first\_hadm\_source,
-
-case
-
-when lower(d.admission\_source\_descr) like '%emergency%' then 'Y'
-
-else 'N'
-
-end as ED\_admission,
-
-case
-
-when icud.icustay\_admit\_age&gt;150 then 91.4
-
-else round(icud.icustay\_admit\_age,1)
-
-end as age\_first\_icustay,
-
-icud.gender,
-
-d.ethnicity\_descr as race,
-
-round(icud.icustay\_los/60/24,2) as first\_icustay\_los,
-
-icud.icustay\_first\_service,
-
-icud.sapsi\_first as first\_icustay\_admit\_saps,
-
-case
-
-when msa.hadm\_id is not null then 'Y'
-
-else 'N'
-
-end as first\_hadm\_sepsis
-
-from mimic2v26.icustay\_detail icud
-
-left join mimic2v26.demographic\_detail d on icud.hadm\_id=d.hadm\_id
-
-left join mimic2devel.martin\_sepsis\_admissions msa on
-icud.hadm\_id=msa.hadm\_id
-
-where icud.subject\_icustay\_seq=1
-
-and icud.icustay\_age\_group='adult'
-
-and icud.hadm\_id is not null
-
-and icud.icustay\_id is not null
-
--- and icud.subject\_id &lt; 100
-
-)
-
---select \* from first\_admissions;
-
-, raw\_icu\_admit\_labs as
-
-(select distinct r.subject\_id,
-
-case
-
-when l.itemid=50090 then 'serum\_cr'
-
-when l.itemid=50159 then 'serum\_sodium'
-
-when l.itemid=50655 then 'urine\_protein'
-
-when l.itemid=50264 then 'urine\_cr'
-
-when l.itemid=50277 then 'urine\_sodium'
-
-when l.itemid=50276 then 'urine\_protein\_cr\_ratio'
-
-when l.itemid=50177 then 'bun'
-
-when l.itemid=50149 then 'potassium'
-
-when l.itemid=50083 then 'chloride'
-
-when l.itemid=50172 then 'bicarb'
-
-when l.itemid=50383 then 'hematocrit'
-
-when l.itemid=50468 then 'wbc'
-
-when l.itemid=50140 then 'magnesium'
-
-when l.itemid=50148 then 'phosphate'
-
-when l.itemid=50079 then 'calcium'
-
-when l.itemid=50010 then 'lactate'
-
-when l.itemid=50018 then 'ph'
-
-when l.itemid=50428 then 'platelets'
-
-when l.itemid=50060 then 'albumin'
-
-when l.itemid=50112 then 'glucose'
-
-when l.itemid=50399 then 'inr'
-
-when l.itemid=50439 then 'pt'
-
-when l.itemid=50440 then 'ptt'
-
-when l.itemid=50115 then 'haptoglobin'
-
-when l.itemid=50134 then 'ldh'
-
-when l.itemid=50370 then 'd-dimer'
-
-end as lab\_type,
-
-first\_value(l.value) over (partition by l.hadm\_id, l.itemid order by
-l.charttime) as lab\_value,
-
-first\_value(l.charttime) over (partition by l.hadm\_id order by
-l.charttime) as icu\_admit\_lab\_time
-
-from first\_admissions r
-
-join mimic2v26.labevents l
-
-on r.first\_hadm\_id=l.hadm\_id
-
-and l.itemid in
-(50090,50159,50655,50264,50277,50276,50177,50149,50083,50172,50383,50468,50140,50148,50079,50010,50018,50428,50060,50112,50399,50439,50440,50115,50134,50370)
-
-and l.charttime between r.first\_icustay\_intime - interval '12' hour
-and r.first\_icustay\_intime + interval '12' hour
-
-)
-
---select \* from raw\_icu\_admit\_labs order by 1,2;
-
-, icu\_admit\_labs as
-
-(select \*
-
-from (select \* from raw\_icu\_admit\_labs)
-
-pivot
-
-(max(lab\_value) for lab\_type in
-
-('serum\_cr' as icu\_admit\_serum\_cr,
-
-'serum\_sodium' as icu\_admit\_serum\_sodium,
-
-'urine\_protein' as icu\_admit\_urine\_protein,
-
-'urine\_cr' as icu\_admit\_urine\_cr,
-
-'urine\_sodium' as icu\_admit\_urine\_sodium,
-
-'urine\_protein\_cr\_ratio' as icu\_admit\_urine\_prot\_cr\_ratio,
-
-'bun' as icu\_admit\_bun,
-
-'potassium' as icu\_admit\_potassium,
-
-'chloride' as icu\_admit\_chloride,
-
-'bicarb' as icu\_admit\_bicarb,
-
-'hematocrit' as icu\_admit\_hematocrit,
-
-'wbc' as icu\_admit\_wbc,
-
-'magnesium' as icu\_admit\_magnesium,
-
-'phosphate' as icu\_admit\_phosphate,
-
-'calcium' as icu\_admit\_calcium,
-
-'lactate' as icu\_admit\_lactate,
-
-'ph' as icu\_admit\_ph,
-
-'platelets' as icu\_admit\_platelets,
-
-'albumin' as icu\_admit\_albumin,
-
-'glucose' as icu\_admit\_glucose,
-
-'inr' as icu\_admit\_inr,
-
-'pt' as icu\_admit\_pt,
-
-'ptt' as icu\_admit\_ptt,
-
-'haptoglobin' as icu\_admit\_haptoglobin,
-
-'ldh' as icu\_admit\_ldh,
-
-'d-dimer' as icu\_admit\_d\_dimer
-
-)
-
-)
-
-)
-
---select \* from icu\_admit\_labs order by 1;
-
-, raw\_hosp\_admit\_labs as
-
-(select distinct r.subject\_id,
-
-case
-
-when l.itemid=50090 then 'serum\_cr'
-
-when l.itemid=50159 then 'serum\_sodium'
-
-when l.itemid=50655 then 'urine\_protein'
-
-when l.itemid=50264 then 'urine\_cr'
-
-when l.itemid=50277 then 'urine\_sodium'
-
-when l.itemid=50276 then 'urine\_protein\_cr\_ratio'
-
-when l.itemid=50177 then 'bun'
-
-when l.itemid=50149 then 'potassium'
-
-when l.itemid=50083 then 'chloride'
-
-when l.itemid=50172 then 'bicarb'
-
-when l.itemid=50383 then 'hematocrit'
-
-when l.itemid=50468 then 'wbc'
-
-when l.itemid=50140 then 'magnesium'
-
-when l.itemid=50148 then 'phosphate'
-
-when l.itemid=50079 then 'calcium'
-
-when l.itemid=50010 then 'lactate'
-
-when l.itemid=50018 then 'ph'
-
-when l.itemid=50428 then 'platelets'
-
-when l.itemid=50060 then 'albumin'
-
-when l.itemid=50112 then 'glucose'
-
-end as lab\_type,
-
-first\_value(l.value) over (partition by l.hadm\_id, l.itemid order by
-l.charttime) as lab\_value,
-
-first\_value(l.charttime) over (partition by l.hadm\_id order by
-l.charttime) as hosp\_admit\_lab\_time
-
-from readmissions r
-
-join mimic2v26.labevents l
-
-on r.first\_hadm\_id=l.hadm\_id
-
-and l.itemid in
-(50090,50159,50655,50264,50277,50276,50177,50149,50083,50172,50383,50468,50140,50148,50079,50010,50018,50428,50060,50112)
-
-and extract(day from l.charttime-r.first\_hadm\_admit\_dt) = 0
-
-)
-
---select \* from raw\_hosp\_admit\_labs order by 1,2;
-
-, hosp\_admit\_labs as
-
-(select \*
-
-from (select \* from raw\_hosp\_admit\_labs)
-
-pivot
-
-(max(lab\_value) for lab\_type in
-
-('serum\_cr' as hosp\_admit\_serum\_cr,
-
-'serum\_sodium' as hosp\_admit\_serum\_sodium,
-
-'urine\_protein' as hosp\_admit\_urine\_protein,
-
-'urine\_cr' as hosp\_admit\_urine\_cr,
-
-'urine\_sodium' as hosp\_admit\_urine\_sodium,
-
-'urine\_protein\_cr\_ratio' as hosp\_admit\_urine\_prot\_cr\_ratio,
-
-'bun' as hosp\_admit\_bun,
-
-'potassium' as hosp\_admit\_potassium,
-
-'chloride' as hosp\_admit\_chloride,
-
-'bicarb' as hosp\_admit\_bicarb,
-
-'hematocrit' as hosp\_admit\_hematocrit,
-
-'wbc' as hosp\_admit\_wbc,
-
-'magnesium' as hosp\_admit\_magnesium,
-
-'phosphate' as hosp\_admit\_phosphate,
-
-'calcium' as hosp\_admit\_calcium,
-
-'lactate' as hosp\_admit\_lactate,
-
-'ph' as hosp\_admit\_ph,
-
-'platelets' as hosp\_admit\_platelets,
-
-'albumin' as hosp\_admit\_albumin,
-
-'glucose' as hosp\_admit\_glucose
-
-)
-
-)
-
-)
-
---select \* from hosp\_admit\_labs order by 1;
-
-, admit\_labs\_first\_icustay as
-
-(select i.subject\_id,
-
-extract(day from i.icu\_admit\_lab\_time-r.first\_hadm\_admit\_dt) as
-days\_btw\_icu\_lab\_hosp\_admit,
-
-case
-
-when i.icu\_admit\_lab\_time is null or h.hosp\_admit\_lab\_time is null
-then null
-
-when abs(extract(minute from
-i.icu\_admit\_lab\_time-h.hosp\_admit\_lab\_time)) &lt; 10 then 'Y'
-
-else 'N'
-
-end as same\_hosp\_icu\_admit\_labs,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(i.icu\_admit\_serum\_cr, ' +-.0123456789', '
-'))) &gt; 0 then null
-
-else to\_number(i.icu\_admit\_serum\_cr)
-
-end as icu\_admit\_serum\_cr,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(i.icu\_admit\_serum\_sodium, '
-+-.0123456789', ' '))) &gt; 0 then null
-
-else to\_number(i.icu\_admit\_serum\_sodium)
-
-end as icu\_admit\_serum\_sodium,
-
-case
-
-when i.icu\_admit\_urine\_protein in ('N','NEG','NEGATIVE','Neg') then 0
-
-when i.icu\_admit\_urine\_protein in ('TR','Tr') then 1
-
-when i.icu\_admit\_urine\_protein in ('15','25','30') then 30
-
-when i.icu\_admit\_urine\_protein in ('75','100') then 100
-
-when i.icu\_admit\_urine\_protein in ('150','300') then 300
-
-when i.icu\_admit\_urine\_protein in ('&gt;300','&gt;600','500') then
-500
-
-else null
-
-end as icu\_admit\_urine\_protein,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(i.icu\_admit\_urine\_cr, ' +-.0123456789', '
-'))) &gt; 0 then null
-
-else to\_number(i.icu\_admit\_urine\_cr)
-
-end as icu\_admit\_urine\_cr,
-
-case
-
-when i.icu\_admit\_urine\_sodium='&lt;10' or
-(lower(i.icu\_admit\_urine\_sodium) like '%less%' and
-i.icu\_admit\_urine\_sodium like '%10%') then 0
-
-when LENGTH(TRIM(TRANSLATE(i.icu\_admit\_urine\_sodium, '
-+-.0123456789', ' '))) &gt; 0 then null
-
-else to\_number(i.icu\_admit\_urine\_sodium)
-
-end as icu\_admit\_urine\_sodium,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(i.icu\_admit\_urine\_prot\_cr\_ratio, '
-+-.0123456789', ' '))) &gt; 0 then null
-
-else to\_number(i.icu\_admit\_urine\_prot\_cr\_ratio)
-
-end as icu\_admit\_urine\_prot\_cr\_ratio,
-
-i.icu\_admit\_bun,
-
-i.icu\_admit\_potassium,
-
-i.icu\_admit\_chloride,
-
-i.icu\_admit\_bicarb,
-
-i.icu\_admit\_hematocrit,
-
-i.icu\_admit\_wbc,
-
-i.icu\_admit\_magnesium,
-
-i.icu\_admit\_phosphate,
-
-i.icu\_admit\_calcium,
-
-i.icu\_admit\_lactate,
-
-i.icu\_admit\_ph,
-
-i.icu\_admit\_platelets,
-
-i.icu\_admit\_albumin,
-
-i.icu\_admit\_glucose,
-
-i.icu\_admit\_inr,
-
-i.icu\_admit\_pt,
-
-i.icu\_admit\_ptt,
-
-i.icu\_admit\_haptoglobin,
-
-i.icu\_admit\_ldh,
-
-i.icu\_admit\_d\_dimer,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(h.hosp\_admit\_serum\_cr, ' +-.0123456789', '
-'))) &gt; 0 then null
-
-else to\_number(h.hosp\_admit\_serum\_cr)
-
-end as hosp\_admit\_serum\_cr,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(h.hosp\_admit\_serum\_sodium, '
-+-.0123456789', ' '))) &gt; 0 then null
-
-else to\_number(h.hosp\_admit\_serum\_sodium)
-
-end as hosp\_admit\_serum\_sodium,
-
-case
-
-when h.hosp\_admit\_urine\_protein in ('N','NEG','NEGATIVE','Neg') then
-0
-
-when h.hosp\_admit\_urine\_protein in ('TR','Tr') then 1
-
-when h.hosp\_admit\_urine\_protein in ('15','25','30') then 30
-
-when h.hosp\_admit\_urine\_protein in ('75','100') then 100
-
-when h.hosp\_admit\_urine\_protein in ('150','300') then 300
-
-when h.hosp\_admit\_urine\_protein in ('&gt;300','&gt;600','500') then
-500
-
-else null
-
-end as hosp\_admit\_urine\_protein,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(h.hosp\_admit\_urine\_cr, ' +-.0123456789', '
-'))) &gt; 0 then null
-
-else to\_number(h.hosp\_admit\_urine\_cr)
-
-end as hosp\_admit\_urine\_cr,
-
-case
-
-when h.hosp\_admit\_urine\_sodium='&lt;10' or
-(lower(h.hosp\_admit\_urine\_sodium) like '%less%' and
-h.hosp\_admit\_urine\_sodium like '%10%') then 0
-
-when LENGTH(TRIM(TRANSLATE(h.hosp\_admit\_urine\_sodium, '
-+-.0123456789', ' '))) &gt; 0 then null
-
-else to\_number(h.hosp\_admit\_urine\_sodium)
-
-end as hosp\_admit\_urine\_sodium,
-
-case
-
-when LENGTH(TRIM(TRANSLATE(h.hosp\_admit\_urine\_prot\_cr\_ratio, '
-+-.0123456789', ' '))) &gt; 0 then null
-
-else to\_number(h.hosp\_admit\_urine\_prot\_cr\_ratio)
-
-end as hosp\_admit\_urine\_prot\_cr\_ratio,
-
-h.hosp\_admit\_bun,
-
-h.hosp\_admit\_potassium,
-
-h.hosp\_admit\_chloride,
-
-h.hosp\_admit\_bicarb,
-
-h.hosp\_admit\_hematocrit,
-
-h.hosp\_admit\_wbc,
-
-h.hosp\_admit\_magnesium,
-
-h.hosp\_admit\_phosphate,
-
-h.hosp\_admit\_calcium,
-
-h.hosp\_admit\_lactate,
-
-h.hosp\_admit\_ph,
-
-h.hosp\_admit\_platelets,
-
-h.hosp\_admit\_albumin,
-
-h.hosp\_admit\_glucose
-
-from readmissions r
-
-left join icu\_admit\_labs i on r.subject\_id=i.subject\_id
-
-left join hosp\_admit\_labs h on i.subject\_id=h.subject\_id
-
-)
-
---select \* from admit\_labs\_first\_icustay;
-
--- Get peak creatinine values from first ICU stays
-
-, peak\_creat\_first\_icustay as
-
-(select distinct r.subject\_id,
-
-count(\*) as num\_cr\_first\_icustay,
-
-max(l.valuenum) as cr\_peak\_first\_icustay
-
-from first\_admissions r
-
-join mimic2v26.labevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid=50090
-
-group by r.subject\_id
-
-)
-
---select \* from peak\_creat\_first\_icustay;
-
--- Get discharge creatinine values from first ICU stays
-
-, disch\_creat\_first\_icustay as
-
-(select distinct r.subject\_id,
-
-first\_value(l.valuenum) over (partition by l.icustay\_id order by
-l.charttime desc) as cr\_disch\_first\_icustay
-
-from first\_admissions r
-
-join mimic2v26.labevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid=50090 and l.charttime between r.first\_icustay\_outtime -
-interval '48' hour and r.first\_icustay\_outtime
-
-)
-
---select \* from disch\_creat\_first\_icustay;
-
--- Get number of days with at least one creatinine measurement during
-the first ICU stay
-
-, days\_with\_cr\_first\_icustay as
-
-(select distinct r.subject\_id,
-
-icud.seq
-
-from first\_admissions r
-
-join mimic2v26.icustay\_days icud on
-r.first\_icustay\_id=icud.icustay\_id
-
-join mimic2v26.labevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid=50090 and l.charttime between icud.begintime and icud.endtime
-
-)
-
---select \* from days\_with\_cr\_first\_icustay;
-
-, num\_daily\_cr\_first\_icustay as
-
-(select subject\_id,
-
-count(\*) as num\_daily\_cr\_first\_icustay
-
-from days\_with\_cr\_first\_icustay
-
-group by subject\_id
-
-)
-
---select \* from num\_daily\_cr\_first\_icustay;
-
--- Get admit creatinine values from second ICU stays
-
-, admit\_labs\_second\_icustay as
-
-(select distinct r.subject\_id,
-
-first\_value(l.valuenum) over (partition by l.icustay\_id order by
-l.charttime) as admit\_serum\_cr\_second\_icustay
-
-from first\_admissions r
-
-join mimic2v26.labevents l on r.second\_icustay\_id=l.icustay\_id and
-l.itemid=50090 and l.charttime between r.second\_icustay\_intime -
-interval '12' hour and r.second\_icustay\_intime + interval '12' hour
-
-)
-
---select \* from admit\_labs\_second\_icustay;
+WITH first_admissions AS
+    
+    (SELECT icud.subject_id,
+        icud.hadm_id AS first_hadm_id,
+        icud.icustay_id AS first_icustay_id
+        icud.hospital_admit_dt AS first_hadm_admit_dt
+        icud.hospital_disch_dt AS first_hadm_disch_dt
+        icud.icustay_intime AS first_icustay_intime
+        icud.icustay_outtime AS first_icustay_outtime,
+        EXTRACT(DAY FROM icud.icustay_intime-icud.hospital_admit_dt) AS days_btw_hosp_icu_admit,
+        EXTRACT(DAY FROM icud.hospital_disch_dt-icud.icustay_outtime) AS days_btw_hosp_icu_disch,
+        icud.icustay_expire_flg AS icu_mort_first_admission,
+        icud.hospital_expire_flg AS hosp_mort_first_admission,
+        d.admission_source_descr AS first_hadm_source,
+        CASE WHEN lower(d.admission_source_descr) like '%emergency%' THEN 'Y'
+            ELSE 'N' END AS ED_admission,
+        CASE WHEN icud.icustay_admit_age>150 THEN 91.4
+            ELSE ROUND(icud.icustay_admit_age,1) END AS age_first_icustay,
+        icud.gender,
+        d.ethnicity_descr AS race,
+        ROUND(icud.icustay_los/60/24,2) AS first_icustay_los,
+        icud.icustay_first_service,
+        icud.sapsi_first AS first_icustay_admit_saps,
+        CASE WHEN msa.hadm_id IS NOT NULL THEN 'Y'
+            ELSE 'N' END AS first_hadm_sepsis
+    FROM mimic2v26.icustay_detail icud
+    LEFT JOIN mimic2v26.demographic_detail d ON icud.hadm_id=d.hadm_id
+    LEFT JOIN mimic2devel.martin_sepsis_admissions msa ON icud.hadm_id=msa.hadm_id
+    WHERE icud.subject_icustay_seq=1
+        AND icud.icustay_age_group='adult'
+        AND icud.hadm_id IS NOT NULL
+        AND icud.icustay_id IS NOT NULL
+        -- AND icud.subject_id < 100
+    )
+
+--SELECT * FROM first_admissions;
+
+, raw_icu_admit_labs AS
+
+    (SELECT DISTINCT r.subject_id,
+        CASE WHEN l.itemid=50090 THEN 'serum_cr'
+             WHEN l.itemid=50159 THEN 'serum_sodium'
+             WHEN l.itemid=50655 THEN 'urine_protein'
+             WHEN l.itemid=50264 THEN 'urine_cr'
+             WHEN l.itemid=50277 THEN 'urine_sodium'
+             WHEN l.itemid=50276 THEN 'urine_protein_cr_ratio'
+             WHEN l.itemid=50177 THEN 'bun'
+             WHEN l.itemid=50149 THEN 'potassium'
+             WHEN l.itemid=50083 THEN 'chloride'
+             WHEN l.itemid=50172 THEN 'bicarb'
+             WHEN l.itemid=50383 THEN 'hematocrit'
+             WHEN l.itemid=50468 THEN 'wbc'
+             WHEN l.itemid=50140 THEN 'magnesium'
+             WHEN l.itemid=50148 THEN 'phosphate'
+             WHEN l.itemid=50079 THEN 'calcium'
+             WHEN l.itemid=50010 THEN 'lactate'
+             WHEN l.itemid=50018 THEN 'ph'
+             WHEN l.itemid=50428 THEN 'platelets'
+             WHEN l.itemid=50060 THEN 'albumin'
+             WHEN l.itemid=50112 THEN 'glucose'
+             WHEN l.itemid=50399 THEN 'inr'
+             WHEN l.itemid=50439 THEN 'pt'
+             WHEN l.itemid=50440 THEN 'ptt'
+             WHEN l.itemid=50115 THEN 'haptoglobin'
+             WHEN l.itemid=50134 THEN 'ldh'
+             WHEN l.itemid=50370 THEN 'd-dimer' END AS lab_type,
+        FIRST_VALUE(l.value) over (PARTITION by l.hadm_id, l.itemid ORDER BY l.charttime) AS lab_value,
+        FIRST_VALUE(l.charttime) over (PARTITION by l.hadm_id ORDER BY l.charttime) AS icu_admit_lab_time
+    FROM first_admissions r
+    INNER JOIN mimic2v26.labevents l
+    ON r.first_hadm_id=l.hadm_id
+    AND l.itemid IN
+    (50090,50159,50655,50264,50277,50276,50177,50149,50083,50172,50383,50468,50140,50148,50079,50010,50018,50428,50060,50112,50399,50439,50440,50115,50134,50370)
+    AND l.charttime BETWEEN r.first_icustay_intime - interval '12' hour
+    AND r.first_icustay_intime + interval '12' hour
+    )
+
+--SELECT * FROM raw_icu_admit_labs ORDER BY 1,2;
+
+, icu_admit_labs AS
+
+    (SELECT *
+     FROM (SELECT * FROM raw_icu_admit_labs)
+    PIVOT
+    (MAX(lab_value) for lab_type IN
+        ('serum_cr' AS icu_admit_serum_cr,
+         'serum_sodium' AS icu_admit_serum_sodium,
+         'urine_protein' AS icu_admit_urine_protein,
+         'urine_cr' AS icu_admit_urine_cr,
+         'urine_sodium' AS icu_admit_urine_sodium,
+         'urine_protein_cr_ratio' AS icu_admit_urine_prot_cr_ratio,
+         'bun' AS icu_admit_bun,
+         'potassium' AS icu_admit_potassium,
+         'chloride' AS icu_admit_chloride,
+         'bicarb' AS icu_admit_bicarb,
+         'hematocrit' AS icu_admit_hematocrit,
+         'wbc' AS icu_admit_wbc,
+         'magnesium' AS icu_admit_magnesium,
+         'phosphate' AS icu_admit_phosphate,
+         'calcium' AS icu_admit_calcium,
+         'lactate' AS icu_admit_lactate,
+         'ph' AS icu_admit_ph,
+         'platelets' AS icu_admit_platelets,
+         'albumin' AS icu_admit_albumin,
+         'glucose' AS icu_admit_glucose,
+         'inr' AS icu_admit_inr,
+         'pt' AS icu_admit_pt,
+         'ptt' AS icu_admit_ptt,
+         'haptoglobin' AS icu_admit_haptoglobin,
+         'ldh' AS icu_admit_ldh,
+         'd-dimer' AS icu_admit_d_dimer)
+        )
+    )
+
+--SELECT * FROM icu_admit_labs ORDER BY 1;
+
+, raw_hosp_admit_labs AS
+
+    (SELECT DISTINCT r.subject_id,
+        CASE WHEN l.itemid=50090 THEN 'serum_cr'
+            WHEN l.itemid=50159 THEN 'serum_sodium'
+            WHEN l.itemid=50655 THEN 'urine_protein'
+            WHEN l.itemid=50264 THEN 'urine_cr'
+            WHEN l.itemid=50277 THEN 'urine_sodium'
+            WHEN l.itemid=50276 THEN 'urine_protein_cr_ratio'
+            WHEN l.itemid=50177 THEN 'bun'
+            WHEN l.itemid=50149 THEN 'potassium'
+            WHEN l.itemid=50083 THEN 'chloride'
+            WHEN l.itemid=50172 THEN 'bicarb'
+            WHEN l.itemid=50383 THEN 'hematocrit'
+            WHEN l.itemid=50468 THEN 'wbc'
+            WHEN l.itemid=50140 THEN 'magnesium'
+            WHEN l.itemid=50148 THEN 'phosphate'
+            WHEN l.itemid=50079 THEN 'calcium'
+            WHEN l.itemid=50010 THEN 'lactate'
+            WHEN l.itemid=50018 THEN 'ph'
+            WHEN l.itemid=50428 THEN 'platelets'
+            WHEN l.itemid=50060 THEN 'albumin'
+            WHEN l.itemid=50112 THEN 'glucose' END AS lab_type,
+        FIRST_VALUE(l.value) over (PARTITION by l.hadm_id, l.itemid ORDER BY l.charttime) AS lab_value,
+        FIRST_VALUE(l.charttime) over (PARTITION by l.hadm_id ORDER BY l.charttime) AS hosp_admit_lab_time
+    FROM readmissions r
+    INNER JOIN mimic2v26.labevents l
+    ON r.first_hadm_id=l.hadm_id
+    AND l.itemid IN (50090,50159,50655,50264,50277,50276,50177,50149,50083,50172,50383,50468,50140,50148,50079,50010,50018,50428,50060,50112)
+    AND EXTRACT(DAY FROM l.charttime-r.first_hadm_admit_dt) = 0
+    )
+
+--SELECT * FROM raw_hosp_admit_labs ORDER BY 1,2;
+
+, hosp_admit_labs AS
+
+    (SELECT *
+    FROM (SELECT * FROM raw_hosp_admit_labs)
+    PIVOT
+    (MAX(lab_value) for lab_type IN
+        ('serum_cr' AS hosp_admit_serum_cr,
+        'serum_sodium' AS hosp_admit_serum_sodium,
+        'urine_protein' AS hosp_admit_urine_protein,
+        'urine_cr' AS hosp_admit_urine_cr,
+        'urine_sodium' AS hosp_admit_urine_sodium,
+        'urine_protein_cr_ratio' AS hosp_admit_urine_prot_cr_ratio,
+        'bun' AS hosp_admit_bun,
+        'potassium' AS hosp_admit_potassium,
+        'chloride' AS hosp_admit_chloride,
+        'bicarb' AS hosp_admit_bicarb,
+        'hematocrit' AS hosp_admit_hematocrit,
+        'wbc' AS hosp_admit_wbc,
+        'magnesium' AS hosp_admit_magnesium,
+        'phosphate' AS hosp_admit_phosphate,
+        'calcium' AS hosp_admit_calcium,
+        'lactate' AS hosp_admit_lactate,
+        'ph' AS hosp_admit_ph,
+        'platelets' AS hosp_admit_platelets,
+        'albumin' AS hosp_admit_albumin,
+        'glucose' AS hosp_admit_glucose)
+        )
+    )
+
+--SELECT * FROM hosp_admit_labs ORDER BY 1;
+
+, admit_labs_first_icustay AS
+
+    (SELECT i.subject_id,
+        EXTRACT(DAY FROM i.icu_admit_lab_time-r.first_hadm_admit_dt) AS days_btw_icu_lab_hosp_admit,
+        CASE WHEN i.icu_admit_lab_time IS NULL OR h.hosp_admit_lab_time IS null THEN null
+             WHEN abs(EXTRACT(minute FROM i.icu_admit_lab_time-h.hosp_admit_lab_time)) < 10 THEN 'Y'
+             ELSE 'N' END AS same_hosp_icu_admit_labs,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(i.icu_admit_serum_cr, '+-.0123456789', ''))) > 0 THEN null
+             ELSE to_number(i.icu_admit_serum_cr) END AS icu_admit_serum_cr,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(i.icu_admit_serum_sodium, '+-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(i.icu_admit_serum_sodium) END AS icu_admit_serum_sodium,
+        CASE WHEN i.icu_admit_urine_protein IN ('N','NEG','NEGATIVE','Neg') THEN 0
+             WHEN i.icu_admit_urine_protein IN ('TR','Tr') THEN 1
+             WHEN i.icu_admit_urine_protein IN ('15','25','30') THEN 30
+             WHEN i.icu_admit_urine_protein IN ('75','100') THEN 100
+             WHEN i.icu_admit_urine_protein IN ('150','300') THEN 300
+             WHEN i.icu_admit_urine_protein IN ('>300','>600','500') THEN 500 
+             ELSE NULL END AS icu_admit_urine_protein,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(i.icu_admit_urine_cr, '+-.0123456789', ''))) > 0 THEN null
+             ELSE to_number(i.icu_admit_urine_cr) END AS icu_admit_urine_cr,
+        CASE WHEN i.icu_admit_urine_sodium='<10' 
+             OR (lower(i.icu_admit_urine_sodium) LIKE '%less%' AND i.icu_admit_urine_sodium LIKE '%10%') THEN 0
+             WHEN LENGTH(TRIM(TRANSLATE(i.icu_admit_urine_sodium, '+-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(i.icu_admit_urine_sodium) END AS icu_admit_urine_sodium,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(i.icu_admit_urine_prot_cr_ratio, '+-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(i.icu_admit_urine_prot_cr_ratio) END AS icu_admit_urine_prot_cr_ratio,
+        i.icu_admit_bun,
+        i.icu_admit_potassium,
+        i.icu_admit_chloride,
+        i.icu_admit_bicarb,
+        i.icu_admit_hematocrit,
+        i.icu_admit_wbc,
+        i.icu_admit_magnesium,
+        i.icu_admit_phosphate,
+        i.icu_admit_calcium,
+        i.icu_admit_lactate,
+        i.icu_admit_ph,
+        i.icu_admit_platelets,
+        i.icu_admit_albumin,
+        i.icu_admit_glucose,
+        i.icu_admit_inr,
+        i.icu_admit_pt,
+        i.icu_admit_ptt,
+        i.icu_admit_haptoglobin,
+        i.icu_admit_ldh,
+        i.icu_admit_d_dimer,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(h.hosp_admit_serum_cr, ' +-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(h.hosp_admit_serum_cr) END AS hosp_admit_serum_cr,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(h.hosp_admit_serum_sodium, ' +-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(h.hosp_admit_serum_sodium) END AS hosp_admit_serum_sodium,
+        CASE WHEN h.hosp_admit_urine_protein IN ('N','NEG','NEGATIVE','Neg') THEN 0
+             WHEN h.hosp_admit_urine_protein IN ('TR','Tr') THEN 1
+             WHEN h.hosp_admit_urine_protein IN ('15','25','30') THEN 30
+             WHEN h.hosp_admit_urine_protein IN ('75','100') THEN 100
+             WHEN h.hosp_admit_urine_protein IN ('150','300') THEN 300
+             WHEN h.hosp_admit_urine_protein IN ('>300','>600','500') THEN 500
+             ELSE NULL END AS hosp_admit_urine_protein,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(h.hosp_admit_urine_cr, ' +-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(h.hosp_admit_urine_cr) END AS hosp_admit_urine_cr,
+        CASE WHEN h.hosp_admit_urine_sodium='<10' 
+                OR (lower(h.hosp_admit_urine_sodium) like '%less%' 
+                AND h.hosp_admit_urine_sodium like '%10%') THEN 0
+             WHEN LENGTH(TRIM(TRANSLATE(h.hosp_admit_urine_sodium, ' +-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(h.hosp_admit_urine_sodium) END AS hosp_admit_urine_sodium,
+        CASE WHEN LENGTH(TRIM(TRANSLATE(h.hosp_admit_urine_prot_cr_ratio, ' +-.0123456789', ' '))) > 0 THEN null
+             ELSE to_number(h.hosp_admit_urine_prot_cr_ratio) END AS hosp_admit_urine_prot_cr_ratio,
+        h.hosp_admit_bun,
+        h.hosp_admit_potassium,
+        h.hosp_admit_chloride,
+        h.hosp_admit_bicarb,
+        h.hosp_admit_hematocrit,
+        h.hosp_admit_wbc,
+        h.hosp_admit_magnesium,
+        h.hosp_admit_phosphate,
+        h.hosp_admit_calcium,
+        h.hosp_admit_lactate,
+        h.hosp_admit_ph,
+        h.hosp_admit_platelets,
+        h.hosp_admit_albumin,
+        h.hosp_admit_glucose
+
+    FROM readmissions r
+    LEFT JOIN icu_admit_labs i ON r.subject_id=i.subject_id
+    LEFT JOIN hosp_admit_labs h ON i.subject_id=h.subject_id
+    )
+
+--SELECT * FROM admit_labs_first_icustay;
+
+-- Get peak creatinine values FROM first ICU stays
+
+, peak_creat_first_icustay AS
+
+    (SELECT DISTINCT r.subject_id,
+        COUNT(*) AS num_cr_first_icustay,
+        MAX(l.valuenum) AS cr_peak_first_icustay
+    FROM first_admissions r
+    INNER JOIN mimic2v26.labevents l ON r.first_icustay_id=l.icustay_id AND l.itemid=50090
+    GROUP BY r.subject_id
+    )
+
+--SELECT * FROM peak_creat_first_icustay;
+
+-- Get discharge creatinine values FROM first ICU stays
+
+, disch_creat_first_icustay AS
+
+    (SELECT DISTINCT r.subject_id,
+        FIRST_VALUE(l.valuenum) over (PARTITION by l.icustay_id ORDER BY
+        l.charttime desc) AS cr_disch_first_icustay
+    FROM first_admissions r
+    INNER JOIN mimic2v26.labevents l ON r.first_icustay_id=l.icustay_id 
+        AND l.itemid=50090 
+        AND l.charttime BETWEEN r.first_icustay_outtime - interval '48' hour AND r.first_icustay_outtime
+    )
+
+--SELECT * FROM disch_creat_first_icustay;
+
+-- Get number of days with at leASt ONe creatinine meASurement during the first ICU stay
+
+, days_with_cr_first_icustay AS
+
+    (SELECT DISTINCT r.subject_id,
+        icud.seq
+    FROM first_admissions r
+    INNER JOIN mimic2v26.icustay_days icud ON r.first_icustay_id=icud.icustay_id
+    INNER JOIN mimic2v26.labevents l ON r.first_icustay_id=l.icustay_id 
+        AND l.itemid=50090 AND l.charttime BETWEEN icud.begintime AND icud.endtime
+    )
+
+--SELECT * FROM days_with_cr_first_icustay;
+
+, num_daily_cr_first_icustay AS
+
+    (SELECT subject_id,
+        COUNT(*) AS num_daily_cr_first_icustay
+    FROM days_with_cr_first_icustay
+    GROUP BY subject_id
+    )
+
+--SELECT * FROM num_daily_cr_first_icustay;
+
+-- Get admit creatinine values FROM second ICU stays
+
+, admit_labs_second_icustay AS
+
+    (SELECT DISTINCT r.subject_id,
+        FIRST_VALUE(l.valuenum) over (PARTITION by l.icustay_id ORDER BY l.charttime) AS admit_serum_cr_second_icustay
+    FROM first_admissions r
+    INNER JOIN mimic2v26.labevents l ON r.second_icustay_id=l.icustay_id AND
+    l.itemid=50090 AND l.charttime BETWEEN r.second_icustay_intime -
+    interval '12' hour AND r.second_icustay_intime + interval '12' hour
+    )
+
+--SELECT * FROM admit_labs_second_icustay;
 
 -- Combine all labs together
 
-, all\_labs as
+, all_labs AS
 
-(select alf.\*,
+    (SELECT alf.*,
+        pcf.cr_peak_first_icustay,
+        dcf.cr_disch_first_icustay,
+        pcf.num_cr_first_icustay,
+        ncf.num_daily_cr_first_icustay,
+        als.admit_serum_cr_second_icustay
+    FROM admit_labs_first_icustay alf
+    LEFT JOIN peak_creat_first_icustay pcf ON alf.subject_id=pcf.subject_id
+    LEFT JOIN disch_creat_first_icustay dcf ON alf.subject_id=dcf.subject_id
+    LEFT JOIN num_daily_cr_first_icustay ncf ON alf.subject_id=ncf.subject_id
+    LEFT JOIN admit_labs_second_icustay als ON alf.subject_id=als.subject_id
+    )
 
-pcf.cr\_peak\_first\_icustay,
-
-dcf.cr\_disch\_first\_icustay,
-
-pcf.num\_cr\_first\_icustay,
-
-ncf.num\_daily\_cr\_first\_icustay,
-
-als.admit\_serum\_cr\_second\_icustay
-
-from admit\_labs\_first\_icustay alf
-
-left join peak\_creat\_first\_icustay pcf on
-alf.subject\_id=pcf.subject\_id
-
-left join disch\_creat\_first\_icustay dcf on
-alf.subject\_id=dcf.subject\_id
-
-left join num\_daily\_cr\_first\_icustay ncf on
-alf.subject\_id=ncf.subject\_id
-
-left join admit\_labs\_second\_icustay als on
-alf.subject\_id=als.subject\_id
-
-)
-
---select \* from all\_labs;
+--SELECT * FROM all_labs;
 
 -- Narrow down Chartevents table
 
-, small\_chartevents as
+, small_chartevents AS
 
-(select subject\_id,
+    (SELECT subject_id,
+        icustay_id,
+        itemid,
+        charttime,
+        value1num,
+        value2num
+    FROM mimic2v26.chartevents
+    WHERE itemid IN (580,581,763,762,920,211,51,52,455,456,678,679,646,834,20001)
+        AND subject_id IN (SELECT subject_id FROM first_admissions)
+    )
 
-icustay\_id,
+--SELECT * FROM small_chartevents;
 
-itemid,
+    -- Get admit weight FROM first ICU stays
 
-charttime,
+    , admit_weight_first_icustay AS
 
-value1num,
+    (SELECT DISTINCT r.subject_id,
+        FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY l.charttime) AS weight_admit_first_icustay
+    FROM first_admissions r
+    INNER JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id 
+        AND l.itemid=762 
+        AND l.charttime BETWEEN r.first_icustay_intime AND r.first_icustay_intime + interval '24' hour
+    )
 
-value2num
+--SELECT * FROM admit_weight_first_icustay;
 
-from mimic2v26.chartevents
+-- Get admit height FROM first ICU stays
 
-where itemid in
-(580,581,763,762,920,211,51,52,455,456,678,679,646,834,20001)
+, admit_height_first_icustay AS
 
-and subject\_id in (select subject\_id from first\_admissions)
+    (SELECT DISTINCT r.subject_id,
+        FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY l.charttime) AS height_admit_first_icustay
+    FROM first_admissions r
+    INNER JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id 
+    AND l.itemid=920 
+    AND l.charttime BETWEEN r.first_icustay_intime AND r.first_icustay_intime + interval '24' hour
+    )
 
-)
+--SELECT * FROM admit_height_first_icustay;
 
---select \* from small\_chartevents;
+-- Get discharge weight FROM first ICU stays
 
--- Get admit weight from first ICU stays
+, disch_weight_first_icustay AS
 
-, admit\_weight\_first\_icustay as
+    (SELECT DISTINCT r.subject_id,
 
-(select distinct r.subject\_id,
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime desc) AS weight_disch_first_icustay
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as weight\_admit\_first\_icustay
+    FROM first_admissions r
 
-from first\_admissions r
+    JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id AND
+    l.itemid IN (580,581,763) AND l.charttime BETWEEN
+    r.first_icustay_outtime - interval '48' hour AND
+    r.first_icustay_outtime
 
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid=762 and l.charttime between r.first\_icustay\_intime and
-r.first\_icustay\_intime + interval '24' hour
+    )
 
-)
+--SELECT * FROM disch_weight_first_icustay;
 
---select \* from admit\_weight\_first\_icustay;
+-- Get admit weight FROM second ICU stays
 
--- Get admit height from first ICU stays
+, admit_weight_second_icustay AS
 
-, admit\_height\_first\_icustay as
+    (SELECT DISTINCT r.subject_id,
 
-(select distinct r.subject\_id,
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS weight_admit_second_icustay
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as height\_admit\_first\_icustay
+    FROM first_admissions r
 
-from first\_admissions r
+    JOIN small_chartevents l ON r.second_icustay_id=l.icustay_id AND
+    l.itemid=762 AND l.charttime BETWEEN r.second_icustay_intime AND
+    r.second_icustay_intime + interval '24' hour
 
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid=920 and l.charttime between r.first\_icustay\_intime and
-r.first\_icustay\_intime + interval '24' hour
+    )
 
-)
+--SELECT * FROM admit_weight_second_icustay;
 
---select \* from admit\_height\_first\_icustay;
+-- Combine all weight AND height together
 
--- Get discharge weight from first ICU stays
+, all_weight_height AS
 
-, disch\_weight\_first\_icustay as
+    (SELECT r.subject_id,
 
-(select distinct r.subject\_id,
+    awf.weight_admit_first_icustay,
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime desc) as weight\_disch\_first\_icustay
+    ahf.height_admit_first_icustay,
 
-from first\_admissions r
+    CASE
 
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid in (580,581,763) and l.charttime between
-r.first\_icustay\_outtime - interval '48' hour and
-r.first\_icustay\_outtime
+    WHEN ahf.height_admit_first_icustay > 0 THEN
+    ROUND(awf.weight_admit_first_icustay/power(ahf.height_admit_first_icustay*0.0254,2),2)
 
-)
+    ELSE NULL
 
---select \* from disch\_weight\_first\_icustay;
+    END AS bmi_admit_first_icustay,
 
--- Get admit weight from second ICU stays
+    dwf.weight_disch_first_icustay,
 
-, admit\_weight\_second\_icustay as
+    aws.weight_admit_second_icustay
 
-(select distinct r.subject\_id,
+    FROM first_admissions r
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as weight\_admit\_second\_icustay
+    LEFT JOIN admit_weight_first_icustay awf ON
+    r.subject_id=awf.subject_id
 
-from first\_admissions r
+    LEFT JOIN admit_height_first_icustay ahf ON
+    r.subject_id=ahf.subject_id
 
-join small\_chartevents l on r.second\_icustay\_id=l.icustay\_id and
-l.itemid=762 and l.charttime between r.second\_icustay\_intime and
-r.second\_icustay\_intime + interval '24' hour
+    LEFT JOIN disch_weight_first_icustay dwf ON
+    r.subject_id=dwf.subject_id
 
-)
+    LEFT JOIN admit_weight_second_icustay aws ON
+    r.subject_id=aws.subject_id
 
---select \* from admit\_weight\_second\_icustay;
+    )
 
--- Combine all weight and height together
+--SELECT * FROM all_weight_height;
 
-, all\_weight\_height as
+-- Get admit heart rate FROM first ICU stays
 
-(select r.subject\_id,
+, admit_hr_first_icustay AS
 
-awf.weight\_admit\_first\_icustay,
+    (SELECT DISTINCT r.subject_id,
 
-ahf.height\_admit\_first\_icustay,
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS hr_admit_first_icustay
 
-case
+    FROM first_admissions r
 
-when ahf.height\_admit\_first\_icustay &gt; 0 then
-round(awf.weight\_admit\_first\_icustay/power(ahf.height\_admit\_first\_icustay\*0.0254,2),2)
+    INNER JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id AND
+    l.itemid IN (211) AND l.charttime BETWEEN r.first_icustay_intime AND
+    r.first_icustay_intime + interval '24' hour
 
-else null
+    )
 
-end as bmi\_admit\_first\_icustay,
+--SELECT * FROM admit_hr_first_icustay;
 
-dwf.weight\_disch\_first\_icustay,
+-- Get admit heart rate FROM second ICU stays
 
-aws.weight\_admit\_second\_icustay
+, admit_hr_second_icustay AS
 
-from first\_admissions r
+    (SELECT DISTINCT r.subject_id,
 
-left join admit\_weight\_first\_icustay awf on
-r.subject\_id=awf.subject\_id
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS hr_admit_second_icustay
 
-left join admit\_height\_first\_icustay ahf on
-r.subject\_id=ahf.subject\_id
+    FROM first_admissions r
 
-left join disch\_weight\_first\_icustay dwf on
-r.subject\_id=dwf.subject\_id
+    INNER JOIN small_chartevents l ON r.second_icustay_id=l.icustay_id AND
+    l.itemid IN (211) AND l.charttime BETWEEN r.second_icustay_intime AND
+    r.second_icustay_intime + interval '24' hour
 
-left join admit\_weight\_second\_icustay aws on
-r.subject\_id=aws.subject\_id
+    )
 
-)
+--SELECT * FROM admit_hr_second_icustay;
 
---select \* from all\_weight\_height;
+-- Get admit mean arterial pressure FROM first ICU stays
 
--- Get admit heart rate from first ICU stays
+, admit_map_first_icustay AS
 
-, admit\_hr\_first\_icustay as
+    (SELECT DISTINCT r.subject_id,
 
-(select distinct r.subject\_id,
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS map_admit_first_icustay,
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as hr\_admit\_first\_icustay
+    FIRST_VALUE(l.itemid) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS map_type_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid in (211) and l.charttime between r.first\_icustay\_intime and
-r.first\_icustay\_intime + interval '24' hour
+    INNER JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id AND
+    l.itemid IN (52,456) AND l.charttime BETWEEN r.first_icustay_intime
+    AND r.first_icustay_intime + interval '24' hour
 
-)
+    )
 
---select \* from admit\_hr\_first\_icustay;
+--SELECT * FROM admit_map_first_icustay;
 
--- Get admit heart rate from second ICU stays
+-- Get admit mean arterial pressure FROM second ICU stays
 
-, admit\_hr\_second\_icustay as
+, admit_map_second_icustay AS
 
-(select distinct r.subject\_id,
+    (SELECT DISTINCT r.subject_id,
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as hr\_admit\_second\_icustay
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS map_admit_second_icustay,
 
-from first\_admissions r
+    FIRST_VALUE(l.itemid) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS map_type_second_icustay
 
-join small\_chartevents l on r.second\_icustay\_id=l.icustay\_id and
-l.itemid in (211) and l.charttime between r.second\_icustay\_intime and
-r.second\_icustay\_intime + interval '24' hour
+    FROM first_admissions r
 
-)
+    INNER JOIN small_chartevents l ON r.second_icustay_id=l.icustay_id AND
+    l.itemid IN (52,456) AND l.charttime BETWEEN r.second_icustay_intime
+    AND r.second_icustay_intime + interval '24' hour
 
---select \* from admit\_hr\_second\_icustay;
+    )
 
--- Get admit mean arterial pressure from first ICU stays
+--SELECT * FROM admit_map_second_icustay;
 
-, admit\_map\_first\_icustay as
+-- Get admit systolic AND diAStolic arterial pressure FROM first ICU stays
 
-(select distinct r.subject\_id,
+, admit_bp_first_icustay AS
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as map\_admit\_first\_icustay,
+    (SELECT DISTINCT r.subject_id,
 
-first\_value(l.itemid) over (partition by l.icustay\_id order by
-l.charttime) as map\_type\_first\_icustay
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS sbp_admit_first_icustay,
 
-from first\_admissions r
+    FIRST_VALUE(l.value2num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS dbp_admit_first_icustay,
 
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid in (52,456) and l.charttime between r.first\_icustay\_intime
-and r.first\_icustay\_intime + interval '24' hour
+    FIRST_VALUE(l.itemid) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS sbp_dbp_type_first_icustay
 
-)
+    FROM first_admissions r
 
---select \* from admit\_map\_first\_icustay;
+    INNER JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id AND
+    l.itemid IN (51,455) AND l.charttime BETWEEN r.first_icustay_intime
+    AND r.first_icustay_intime + interval '24' hour
 
--- Get admit mean arterial pressure from second ICU stays
+    )
 
-, admit\_map\_second\_icustay as
+--SELECT * FROM admit_bp_first_icustay;
 
-(select distinct r.subject\_id,
+-- Get admit systolic AND diAStolic arterial pressure FROM second ICU stays
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as map\_admit\_second\_icustay,
+, admit_bp_second_icustay AS
 
-first\_value(l.itemid) over (partition by l.icustay\_id order by
-l.charttime) as map\_type\_second\_icustay
+    (SELECT DISTINCT r.subject_id,
 
-from first\_admissions r
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS sbp_admit_second_icustay,
 
-join small\_chartevents l on r.second\_icustay\_id=l.icustay\_id and
-l.itemid in (52,456) and l.charttime between r.second\_icustay\_intime
-and r.second\_icustay\_intime + interval '24' hour
+    FIRST_VALUE(l.value2num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS dbp_admit_second_icustay,
 
-)
+    FIRST_VALUE(l.itemid) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS sbp_dbp_type_second_icustay
 
---select \* from admit\_map\_second\_icustay;
+    FROM first_admissions r
 
--- Get admit systolic and diastolic arterial pressure from first ICU
-stays
+    INNER JOIN small_chartevents l ON r.second_icustay_id=l.icustay_id AND
+    l.itemid IN (51,455) AND l.charttime BETWEEN r.second_icustay_intime
+    AND r.second_icustay_intime + interval '24' hour
 
-, admit\_bp\_first\_icustay as
+    )
 
-(select distinct r.subject\_id,
+--SELECT * FROM admit_bp_second_icustay;
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as sbp\_admit\_first\_icustay,
+-- Get admit temperature FROM first ICU stays
 
-first\_value(l.value2num) over (partition by l.icustay\_id order by
-l.charttime) as dbp\_admit\_first\_icustay,
+, admit_temp_first_icustay AS
 
-first\_value(l.itemid) over (partition by l.icustay\_id order by
-l.charttime) as sbp\_dbp\_type\_first\_icustay
+    (SELECT DISTINCT r.subject_id,
 
-from first\_admissions r
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS temp_admit_first_icustay
 
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid in (51,455) and l.charttime between r.first\_icustay\_intime
-and r.first\_icustay\_intime + interval '24' hour
+    FROM first_admissions r
 
-)
+    INNER JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id AND
+    l.itemid IN (678, 679) AND l.charttime BETWEEN r.first_icustay_intime
+    AND r.first_icustay_intime + interval '24' hour
 
---select \* from admit\_bp\_first\_icustay;
+    )
 
--- Get admit systolic and diastolic arterial pressure from second ICU
-stays
+--SELECT * FROM admit_temp_first_icustay;
 
-, admit\_bp\_second\_icustay as
+-- Get admit temperature FROM second ICU stays
 
-(select distinct r.subject\_id,
+, admit_temp_second_icustay AS
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as sbp\_admit\_second\_icustay,
+    (SELECT DISTINCT r.subject_id,
 
-first\_value(l.value2num) over (partition by l.icustay\_id order by
-l.charttime) as dbp\_admit\_second\_icustay,
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS temp_admit_second_icustay
 
-first\_value(l.itemid) over (partition by l.icustay\_id order by
-l.charttime) as sbp\_dbp\_type\_second\_icustay
+    FROM first_admissions r
 
-from first\_admissions r
+    INNER JOIN small_chartevents l ON r.second_icustay_id=l.icustay_id AND
+    l.itemid IN (678, 679) AND l.charttime BETWEEN r.second_icustay_intime
+    AND r.second_icustay_intime + interval '24' hour
 
-join small\_chartevents l on r.second\_icustay\_id=l.icustay\_id and
-l.itemid in (51,455) and l.charttime between r.second\_icustay\_intime
-and r.second\_icustay\_intime + interval '24' hour
+    )
 
-)
+--SELECT * FROM admit_temp_second_icustay;
 
---select \* from admit\_bp\_second\_icustay;
+-- Get admit o2sat FROM first ICU stays
 
--- Get admit temperature from first ICU stays
+, admit_o2sat_first_icustay AS
 
-, admit\_temp\_first\_icustay as
+    (SELECT DISTINCT r.subject_id,
 
-(select distinct r.subject\_id,
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS o2sat_admit_first_icustay
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as temp\_admit\_first\_icustay
+    FROM first_admissions r
 
-from first\_admissions r
+    INNER JOIN small_chartevents l ON r.first_icustay_id=l.icustay_id AND
+    l.itemid IN (646, 834) AND l.charttime BETWEEN r.first_icustay_intime
+    AND r.first_icustay_intime + interval '24' hour
 
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid in (678, 679) and l.charttime between r.first\_icustay\_intime
-and r.first\_icustay\_intime + interval '24' hour
+    )
 
-)
+--SELECT * FROM admit_o2sat_first_icustay;
 
---select \* from admit\_temp\_first\_icustay;
+-- Get admit o2sat FROM second ICU stays
 
--- Get admit temperature from second ICU stays
+, admit_o2sat_second_icustay AS
 
-, admit\_temp\_second\_icustay as
+    (SELECT DISTINCT r.subject_id,
 
-(select distinct r.subject\_id,
+    FIRST_VALUE(l.value1num) over (PARTITION by l.icustay_id ORDER BY
+    l.charttime) AS o2sat_admit_second_icustay
 
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as temp\_admit\_second\_icustay
+    FROM first_admissions r
 
-from first\_admissions r
+    INNER JOIN small_chartevents l ON r.second_icustay_id=l.icustay_id AND
+    l.itemid IN (646, 834) AND l.charttime BETWEEN r.second_icustay_intime
+    AND r.second_icustay_intime + interval '24' hour
 
-join small\_chartevents l on r.second\_icustay\_id=l.icustay\_id and
-l.itemid in (678, 679) and l.charttime between r.second\_icustay\_intime
-and r.second\_icustay\_intime + interval '24' hour
+    )
 
-)
-
---select \* from admit\_temp\_second\_icustay;
-
--- Get admit o2sat from first ICU stays
-
-, admit\_o2sat\_first\_icustay as
-
-(select distinct r.subject\_id,
-
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as o2sat\_admit\_first\_icustay
-
-from first\_admissions r
-
-join small\_chartevents l on r.first\_icustay\_id=l.icustay\_id and
-l.itemid in (646, 834) and l.charttime between r.first\_icustay\_intime
-and r.first\_icustay\_intime + interval '24' hour
-
-)
-
---select \* from admit\_o2sat\_first\_icustay;
-
--- Get admit o2sat from second ICU stays
-
-, admit\_o2sat\_second\_icustay as
-
-(select distinct r.subject\_id,
-
-first\_value(l.value1num) over (partition by l.icustay\_id order by
-l.charttime) as o2sat\_admit\_second\_icustay
-
-from first\_admissions r
-
-join small\_chartevents l on r.second\_icustay\_id=l.icustay\_id and
-l.itemid in (646, 834) and l.charttime between r.second\_icustay\_intime
-and r.second\_icustay\_intime + interval '24' hour
-
-)
-
---select \* from admit\_o2sat\_second\_icustay;
+--SELECT * FROM admit_o2sat_second_icustay;
 
 -- Total urine output during the first ICU stay
 
-, uo\_first\_icustay as
+, uo_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ie.volume) as urine\_first\_icustay
+    SUM(ie.volume) AS urine_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.ioevents ie on r.first\_icustay\_id=ie.icustay\_id
+    INNER JOIN mimic2v26.ioevents ie ON r.first_icustay_id=ie.icustay_id
 
-where ie.itemid in ( 651, 715, 55, 56, 57, 61, 65, 69, 85, 94, 96, 288,
-405, 428, 473, 2042, 2068, 2111, 2119, 2130, 1922, 2810, 2859, 3053,
-3462, 3519, 3175, 2366, 2463, 2507, 2510, 2592, 2676, 3966, 3987, 4132,
-4253, 5927 )
+    WHERE ie.itemid IN ( 651, 715, 55, 56, 57, 61, 65, 69, 85, 94, 96, 288,
+    405, 428, 473, 2042, 2068, 2111, 2119, 2130, 1922, 2810, 2859, 3053,
+    3462, 3519, 3175, 2366, 2463, 2507, 2510, 2592, 2676, 3966, 3987, 4132,
+    4253, 5927 )
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from uo\_first\_icustay;
+--SELECT * FROM uo_first_icustay;
 
-, uo\_first\_icustay\_24h as
+, uo_first_icustay_24h AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ie.volume) as urine\_first\_icustay\_24h
+    SUM(ie.volume) AS urine_first_icustay_24h
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.ioevents ie on r.first\_icustay\_id=ie.icustay\_id and
-ie.charttime between r.first\_icustay\_intime and
-r.first\_icustay\_intime + interval '24' hour
+    INNER JOIN mimic2v26.ioevents ie ON r.first_icustay_id=ie.icustay_id AND
+    ie.charttime BETWEEN r.first_icustay_intime AND
+    r.first_icustay_intime + interval '24' hour
 
-where ie.itemid in ( 651, 715, 55, 56, 57, 61, 65, 69, 85, 94, 96, 288,
-405, 428, 473, 2042, 2068, 2111, 2119, 2130, 1922, 2810, 2859, 3053,
-3462, 3519, 3175, 2366, 2463, 2507, 2510, 2592, 2676, 3966, 3987, 4132,
-4253, 5927 )
+    WHERE ie.itemid IN ( 651, 715, 55, 56, 57, 61, 65, 69, 85, 94, 96, 288,
+    405, 428, 473, 2042, 2068, 2111, 2119, 2130, 1922, 2810, 2859, 3053,
+    3462, 3519, 3175, 2366, 2463, 2507, 2510, 2592, 2676, 3966, 3987, 4132,
+    4253, 5927 )
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from uo\_first\_icustay\_24h;
+--SELECT * FROM uo_first_icustay_24h;
 
 -- Total 1/2 NS during the first ICU stay
 
-, half\_ns\_first\_icustay as
+, half_ns_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ie.volume) as half\_ns\_first\_icustay
+    SUM(ie.volume) AS half_ns_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.ioevents ie on r.first\_icustay\_id=ie.icustay\_id
+    INNER JOIN mimic2v26.ioevents ie ON r.first_icustay_id=ie.icustay_id
 
-where ie.itemid not in (select itemid from rishi\_kothari.d\_fluiditems)
+    WHERE ie.itemid not IN (SELECT itemid FROM rishi_kothari.d_fluiditems)
 
-and ie.itemid in (select itemid from mimic2v26.d\_ioitems where
-(lower(label) like '%normal saline%' or lower(label) like '%ns%') and
-(lower(label) not like '%d%ns%') and (label like '%1/2%' or label like
-'%.45%'))
+    AND ie.itemid IN (SELECT itemid FROM mimic2v26.d_ioitems WHERE
+    (lower(label) like '%normal saline%' or lower(label) like '%ns%') AND
+    (lower(label) not like '%d%ns%') AND (label like '%1/2%' or label like
+    '%.45%'))
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from half\_ns\_first\_icustay;
+--SELECT * FROM half_ns_first_icustay;
 
 -- Total 1/4 NS during the first ICU stay
 
-, quarter\_ns\_first\_icustay as
+, quarter_ns_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ie.volume) as quarter\_ns\_first\_icustay
+    SUM(ie.volume) AS quarter_ns_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.ioevents ie on r.first\_icustay\_id=ie.icustay\_id
+    INNER JOIN mimic2v26.ioevents ie ON r.first_icustay_id=ie.icustay_id
 
-where ie.itemid not in (select itemid from rishi\_kothari.d\_fluiditems)
+    WHERE ie.itemid not IN (SELECT itemid FROM rishi_kothari.d_fluiditems)
 
-and ie.itemid in (select itemid from mimic2v26.d\_ioitems where
-(lower(label) like '%normal saline%' or lower(label) like '%ns%') and
-(lower(label) not like '%d%ns%') and (label like '%1/4%' or label like
-'%.22%'))
+    AND ie.itemid IN (SELECT itemid FROM mimic2v26.d_ioitems WHERE
+    (lower(label) like '%normal saline%' or lower(label) like '%ns%') AND
+    (lower(label) not like '%d%ns%') AND (label like '%1/4%' or label like
+    '%.22%'))
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from quarter\_ns\_first\_icustay;
+--SELECT * FROM quarter_ns_first_icustay;
 
 -- Total D5W during the first ICU stay
 
-, d5w\_first\_icustay as
+, d5w_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ie.volume) as d5w\_first\_icustay
+    SUM(ie.volume) AS d5w_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.ioevents ie on r.first\_icustay\_id=ie.icustay\_id
+    INNER JOIN mimic2v26.ioevents ie ON r.first_icustay_id=ie.icustay_id
 
-where ie.itemid not in (select itemid from rishi\_kothari.d\_fluiditems)
+    WHERE ie.itemid not IN (SELECT itemid FROM rishi_kothari.d_fluiditems)
 
-and ie.itemid in (select itemid from mimic2v26.d\_ioitems where
-lower(label) like '%d5w%' and lower(label) not like '%d5%ns%' and
-lower(label) not like '%d5%lr%' and lower(label) not like '%d5%rl%')
+    AND ie.itemid IN (SELECT itemid FROM mimic2v26.d_ioitems WHERE
+    lower(label) like '%d5w%' AND lower(label) not like '%d5%ns%' AND
+    lower(label) not like '%d5%lr%' AND lower(label) not like '%d5%rl%')
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from d5w\_first\_icustay;
+--SELECT * FROM d5w_first_icustay;
 
 -- Total crystalloid volume during the first ICU stay
 
-, cryst\_first\_icustay as
+, cryst_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ie.volume) as cryst\_first\_icustay
+    SUM(ie.volume) AS cryst_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.ioevents ie on r.first\_icustay\_id=ie.icustay\_id
+    INNER JOIN mimic2v26.ioevents ie ON r.first_icustay_id=ie.icustay_id
 
-where ie.itemid in (select itemid from rishi\_kothari.d\_fluiditems)
+    WHERE ie.itemid IN (SELECT itemid FROM rishi_kothari.d_fluiditems)
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from cryst\_first\_icustay;
+--SELECT * FROM cryst_first_icustay;
 
 -- Total colloid volume during the first ICU stay
 
-, colloid\_first\_icustay as
+, colloid_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ie.volume) as colloid\_first\_icustay
+    SUM(ie.volume) AS colloid_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.ioevents ie on r.first\_icustay\_id=ie.icustay\_id
+    INNER JOIN mimic2v26.ioevents ie ON r.first_icustay_id=ie.icustay_id
 
-where ie.itemid in (select itemid from rishi\_kothari.d\_colloids)
+    WHERE ie.itemid IN (SELECT itemid FROM rishi_kothari.d_colloids)
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from colloid\_first\_icustay;
+--SELECT * FROM colloid_first_icustay;
 
--- Total PO intake during the first ICU stay
+-- Total PO INtake during the first ICU stay
 
-, pointake\_first\_icustay as
+, pointake_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(t.cumvolume) as po\_intake\_first\_icustay
+    SUM(t.cumvolume) AS po_intake_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.totalbalevents t on r.first\_icustay\_id=t.icustay\_id
+    INNER JOIN mimic2v26.totalbalevents t ON r.first_icustay_id=t.icustay_id
 
-where itemid=20
+    WHERE itemid=20
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from pointake\_first\_icustay;
+--SELECT * FROM pointake_first_icustay;
 
 -- Total stool loss during the first ICU stay
 
-, stool\_first\_icustay as
+, stool_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(t.cumvolume) as stool\_first\_icustay
+    SUM(t.cumvolume) AS stool_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.totalbalevents t on r.first\_icustay\_id=t.icustay\_id
+    INNER JOIN mimic2v26.totalbalevents t ON r.first_icustay_id=t.icustay_id
 
-where itemid=22
+    WHERE itemid=22
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from pointake\_first\_icustay;
+--SELECT * FROM pointake_first_icustay;
 
--- Total input during the first ICU stay
+-- Total INput during the first ICU stay
 
-, totalin\_first\_icustay as
+, totalin_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(t.cumvolume) as total\_in\_first\_icustay
+    SUM(t.cumvolume) AS total_in_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.totalbalevents t on r.first\_icustay\_id=t.icustay\_id
+    INNER JOIN mimic2v26.totalbalevents t ON r.first_icustay_id=t.icustay_id
 
-where itemid=1
+    WHERE itemid=1
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from totalin\_first\_icustay;
+--SELECT * FROM totalin_first_icustay;
 
 -- Total output during the first ICU stay
 
-, totalout\_first\_icustay as
+, totalout_first_icustay AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
+    SUM(t.cumvolume) AS total_out_first_icustay
+    FROM first_admissions r
+    INNER JOIN mimic2v26.totalbalevents t ON r.first_icustay_id=t.icustay_id
+    WHERE itemid=2
+    GROUP BY r.subject_id
 
-sum(t.cumvolume) as total\_out\_first\_icustay
+    )
 
-from first\_admissions r
-
-join mimic2v26.totalbalevents t on r.first\_icustay\_id=t.icustay\_id
-
-where itemid=2
-
-group by r.subject\_id
-
-)
-
---select \* from totalout\_first\_icustay;
+--SELECT * FROM totalout_first_icustay;
 
 -- Total fluid balance for the first ICU stay
 
-, fluidbal\_first\_icustay as
+, fluidbal_first_icustay AS
 
-(select distinct r.subject\_id,
+    (SELECT DISTINCT r.subject_id,
+        FIRST_VALUE(t.cumvolume) over (PARTITION by t.icustay_id ORDER BY t.charttime desc) AS fluid_balance_first_icustay
+    FROM first_admissions r
+    INNER JOIN mimic2v26.totalbalevents t ON r.first_icustay_id=t.icustay_id
+    WHERE itemid=28
+    )
 
-first\_value(t.cumvolume) over (partition by t.icustay\_id order by
-t.charttime desc) as fluid\_balance\_first\_icustay
+--SELECT * FROM fluidbal_first_icustay;
 
-from first\_admissions r
+-- ICD9 FROM first hospital admission
 
-join mimic2v26.totalbalevents t on r.first\_icustay\_id=t.icustay\_id
+, icd9_first_admissiON AS
 
-where itemid=28
+    (SELECT r.subject_id,
+        i.code,
+        i.description
+    FROM first_admissions r
+    JOIN mimic2v26.icd9 i ON r.first_hadm_id=i.hadm_id
+    WHERE i.sequence = 1
+    )
 
-)
+--SELECT * FROM icd9_first_admission;
 
---select \* from fluidbal\_first\_icustay;
+-- ICD9 FROM second hospital admission
 
--- ICD9 from first hospital admission
+, icd9_second_admissiON AS
 
-, icd9\_first\_admission as
+    (SELECT r.subject_id,
+        i.code,
+        i.description
+    FROM first_admissions r
+    JOIN mimic2v26.icd9 i ON r.second_hadm_id=i.hadm_id
+    WHERE i.sequence = 1
 
-(select r.subject\_id,
+    )
 
-i.code,
-
-i.description
-
-from first\_admissions r
-
-join mimic2v26.icd9 i on r.first\_hadm\_id=i.hadm\_id
-
-where i.sequence = 1
-
-)
-
---select \* from icd9\_first\_admission;
-
--- ICD9 from second hospital admission
-
-, icd9\_second\_admission as
-
-(select r.subject\_id,
-
-i.code,
-
-i.description
-
-from first\_admissions r
-
-join mimic2v26.icd9 i on r.second\_hadm\_id=i.hadm\_id
-
-where i.sequence = 1
-
-)
-
---select \* from icd9\_second\_admission;
+--SELECT * FROM icd9_second_admission;
 
 ------------------------------------
 
@@ -1389,969 +975,970 @@ where i.sequence = 1
 
 ------------------------------------
 
-, first\_dialysis as
+, first_dialysis AS
 
-(select distinct r.subject\_id,
+    (SELECT DISTINCT r.subject_id,
 
-r.first\_hadm\_id,
+    r.first_hadm_id,
 
-r.first\_icustay\_id,
+    r.first_icustay_id,
 
-first\_value(p.proc\_dt) over (partition by p.hadm\_id order by
-p.proc\_dt) as first\_dialysis\_dt
+    FIRST_VALUE(p.proc_dt) over (PARTITION by p.hadm_id ORDER BY
+    p.proc_dt) AS first_dialysis_dt
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.procedureevents p on r.first\_hadm\_id=p.hadm\_id
+    JOIN mimic2v26.procedureevents p ON r.first_hadm_id=p.hadm_id
 
-where p.itemid in (100977,100622)
+    WHERE p.itemid IN (100977,100622)
 
-)
+    )
 
---select \* from first\_dialysis;
+--SELECT * FROM first_dialysis;
 
 -- Hemodialysis during the first hospital admission
 
-, hd as
+, hd AS
 
-(select distinct r.subject\_id
+    (SELECT DISTINCT r.subject_id
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.procedureevents p on r.first\_hadm\_id=p.hadm\_id
+    JOIN mimic2v26.procedureevents p ON r.first_hadm_id=p.hadm_id
 
-where p.itemid=100622
+    WHERE p.itemid=100622
 
-)
+    )
 
---select \* from hd;
+--SELECT * FROM hd;
 
 -- Peritoneal dialysis during the first hospital admission
 
-, pd as
+, pd AS
 
-(select distinct r.subject\_id
+    (SELECT DISTINCT r.subject_id
 
-from first\_admissions r
+    FROM first_admissions r
 
-join mimic2v26.procedureevents p on r.first\_hadm\_id=p.hadm\_id
+    JOIN mimic2v26.procedureevents p ON r.first_hadm_id=p.hadm_id
 
-where p.itemid=100977
+    WHERE p.itemid=100977
 
-)
+    )
 
---select \* from pd;
+--SELECT * FROM pd;
 
-, labs\_proximal\_to\_dialysis as
+, labs_proximal_to_dialysis AS
 
-(select fd.subject\_id,
+    (SELECT fd.subject_id,
 
-extract(day from fd.first\_dialysis\_dt-r.first\_icustay\_intime) as
-icu\_day\_first\_dialysis,
+    EXTRACT(DAY FROM fd.first_dialysis_dt-r.first_icustay_intime) AS
+    icu_day_first_dialysis,
 
-fd.first\_dialysis\_dt-r.first\_hadm\_admit\_dt as
-hosp\_day\_first\_dialysis,
+    fd.first_dialysis_dt-r.first_hadm_admit_dt AS
+    hosp_day_first_dialysis,
 
-fd.first\_dialysis\_dt,
+    fd.first_dialysis_dt,
 
-l.itemid,
+    l.itemid,
 
-l.charttime,
+    l.charttime,
 
-first\_value(l.valuenum) over (partition by fd.subject\_id,l.itemid
-order by fd.first\_dialysis\_dt-l.charttime) as proximal\_lab
+    FIRST_VALUE(l.valuenum) over (PARTITION by fd.subject_id,l.itemid
+    ORDER BY fd.first_dialysis_dt-l.charttime) AS proximal_lab
 
-from first\_dialysis fd
+    FROM first_dialysis fd
 
-join first\_admissions r on fd.subject\_id=r.subject\_id
+    JOIN first_admissions r ON fd.subject_id=r.subject_id
 
-join mimic2v26.labevents l on r.first\_hadm\_id=l.hadm\_id and l.itemid
-in (50090,50177) and l.charttime &lt; fd.first\_dialysis\_dt
+    JOIN mimic2v26.labevents l ON r.first_hadm_id=l.hadm_id AND l.itemid
+    IN (50090,50177) AND l.charttime < fd.first_dialysis_dt
 
-)
+    )
 
---select \* from labs\_proximal\_to\_dialysis;
+--SELECT * FROM labs_proximal_to_dialysis;
 
-, labs\_prior\_to\_dialysis as
+, labs_prior_to_dialysis AS
 
-(select subject\_id,
+    (SELECT subject_id,
 
-icu\_day\_first\_dialysis,
+    icu_day_first_dialysis,
 
-hosp\_day\_first\_dialysis,
+    hosp_day_first_dialysis,
 
-first\_dialysis\_dt,
+    first_dialysis_dt,
 
-cr\_prior\_to\_dialysis,
+    cr_prior_to_dialysis,
 
-bun\_prior\_to\_dialysis
+    bun_prior_to_dialysis
 
-from (select distinct subject\_id, icu\_day\_first\_dialysis,
-hosp\_day\_first\_dialysis, first\_dialysis\_dt, itemid, proximal\_lab
-from labs\_proximal\_to\_dialysis)
+    FROM (SELECT DISTINCT subject_id, icu_day_first_dialysis,
+    hosp_day_first_dialysis, first_dialysis_dt, itemid, proximal_lab
+    FROM labs_proximal_to_dialysis)
 
-pivot
+    PIVOT
 
-(avg(proximal\_lab) for itemid in
+    (avg(proximal_lab) for itemid IN
 
-('50090' as cr\_prior\_to\_dialysis,
+    ('50090' AS cr_prior_to_dialysis,
 
-'50177' as bun\_prior\_to\_dialysis
+    '50177' AS bun_prior_to_dialysis
 
-)
+    )
 
-)
+    )
 
-)
+    )
 
---select \* from labs\_prior\_to\_dialysis;
+    --SELECT * FROM labs_prior_to_dialysis;
 
-, cr\_and\_dialysis as
+    , cr_and_dialysis AS
 
-(select subject\_id,
+    (SELECT subject_id,
 
-extract(day from min(first\_dialysis\_dt-charttime)) as
-days\_btw\_cr\_and\_dialysis
+    EXTRACT(DAY FROM min(first_dialysis_dt-charttime)) AS
+    days_btw_cr_and_dialysis
 
-from labs\_proximal\_to\_dialysis
+    FROM labs_proximal_to_dialysis
 
-where itemid=50090
+    WHERE itemid=50090
 
-group by subject\_id
+    GROUP BY subject_id
 
-)
+    )
 
---select \* from cr\_and\_dialysis;
+--SELECT * FROM cr_and_dialysis;
 
-, fluidbal\_dialysis as
+, fluidbal_dialysis AS
 
-(select distinct f.subject\_id,
+    (SELECT DISTINCT f.subject_id,
 
-first\_value(t.cumvolume) over (partition by t.icustay\_id order by
-t.charttime desc) as fluidbal\_prior\_to\_dialysis
+    FIRST_VALUE(t.cumvolume) over (PARTITION by t.icustay_id ORDER BY
+    t.charttime desc) AS fluidbal_prior_to_dialysis
 
-from first\_dialysis f
+    FROM first_dialysis f
 
-join mimic2v26.totalbalevents t on f.first\_icustay\_id=t.icustay\_id
+    JOIN mimic2v26.totalbalevents t ON f.first_icustay_id=t.icustay_id
 
-where t.itemid=28
+    WHERE t.itemid=28
 
-and t.charttime &lt; f.first\_dialysis\_dt
+    AND t.charttime < f.first_dialysis_dt
 
-)
+    )
 
---select \* from fluidbal\_dialysis;
+--SELECT * FROM fluidbal_dialysis;
 
-, uo\_dialysis as
+, uo_dialysis AS
 
-(select f.subject\_id,
+    (SELECT f.subject_id,
 
-sum(ie.volume) as urine\_prior\_to\_dialysis
+    SUM(ie.volume) AS urine_prior_to_dialysis
 
-from first\_dialysis f
+    FROM first_dialysis f
 
-join mimic2v26.ioevents ie on f.first\_icustay\_id=ie.icustay\_id and
-ie.charttime &lt; f.first\_dialysis\_dt
+    JOIN mimic2v26.ioevents ie ON f.first_icustay_id=ie.icustay_id AND
+    ie.charttime < f.first_dialysis_dt
 
-where ie.itemid in ( 651, 715, 55, 56, 57, 61, 65, 69, 85, 94, 96, 288,
-405, 428, 473, 2042, 2068, 2111, 2119, 2130, 1922, 2810, 2859, 3053,
-3462, 3519, 3175, 2366, 2463, 2507, 2510, 2592, 2676, 3966, 3987, 4132,
-4253, 5927 )
+    WHERE ie.itemid IN ( 651, 715, 55, 56, 57, 61, 65, 69, 85, 94, 96, 288,
+    405, 428, 473, 2042, 2068, 2111, 2119, 2130, 1922, 2810, 2859, 3053,
+    3462, 3519, 3175, 2366, 2463, 2507, 2510, 2592, 2676, 3966, 3987, 4132,
+    4253, 5927 )
 
-and ie.volume &gt; 0
+    AND ie.volume > 0
 
-group by f.subject\_id
+    GROUP BY f.subject_id
 
-)
+    )
 
---select \* from uo\_dialysis;
+--SELECT * FROM uo_dialysis;
 
-, ivf\_dialysis as
+, ivf_dialysis AS
 
-(select f.subject\_id,
+    (SELECT f.subject_id,
 
-sum(ie.volume) as ivf\_prior\_to\_dialysis
+    SUM(ie.volume) AS ivf_prior_to_dialysis
 
-from first\_dialysis f
+    FROM first_dialysis f
 
-join mimic2v26.ioevents ie on f.first\_icustay\_id=ie.icustay\_id and
-ie.charttime &lt; f.first\_dialysis\_dt
+    JOIN mimic2v26.ioevents ie ON f.first_icustay_id=ie.icustay_id AND
+    ie.charttime < f.first_dialysis_dt
 
-where (ie.itemid in (select itemid from rishi\_kothari.d\_fluiditems) or
-ie.itemid in (select itemid from rishi\_kothari.d\_colloids))
+    WHERE (ie.itemid IN (SELECT itemid FROM rishi_kothari.d_fluiditems) or
+    ie.itemid IN (SELECT itemid FROM rishi_kothari.d_colloids))
 
-and ie.volume &gt; 0
+    AND ie.volume > 0
 
-group by f.subject\_id
+    GROUP BY f.subject_id
 
-)
+    )
 
---select \* from ivf\_dialysis;
+--SELECT * FROM ivf_dialysis;
 
-, saps\_dialysis as
+, saps_dialysis AS
 
-(select distinct f.subject\_id,
+    (SELECT DISTINCT f.subject_id,
 
-first\_value(ce.value1num) over (partition by f.subject\_id order by
-ce.charttime desc) as saps\_day\_of\_dialysis
+    FIRST_VALUE(ce.value1num) over (PARTITION by f.subject_id ORDER BY
+    ce.charttime desc) AS saps_day_of_dialysis
 
-from first\_dialysis f
+    FROM first_dialysis f
 
-join small\_chartevents ce on f.first\_icustay\_id=ce.icustay\_id and
-ce.itemid=20001 and ce.charttime&gt;=f.first\_dialysis\_dt and
-extract(day from ce.charttime-f.first\_dialysis\_dt)=0
+    JOIN small_chartevents ce ON f.first_icustay_id=ce.icustay_id AND
+    ce.itemid=20001 AND ce.charttime>=f.first_dialysis_dt AND
+    EXTRACT(DAY FROM ce.charttime-f.first_dialysis_dt)=0
 
-)
+    )
 
---select \* from saps\_dialysis;
+--SELECT * FROM saps_dialysis;
 
-, all\_dialysis\_data as
+, all_dialysis_data AS
 
-(select f.\*,
+    (SELECT f.*,
 
-case
+    CASE
 
-when hd.subject\_id is null then 'N'
+    WHEN hd.subject_id IS NULL THEN 'N'
 
-else 'Y'
+    ELSE 'Y'
 
-end as hd\_first\_hadm,
+    END AS hd_first_hadm,
 
-case
+    CASE
 
-when pd.subject\_id is null then 'N'
+    WHEN pd.subject_id IS NULL THEN 'N'
 
-else 'Y'
+    ELSE 'Y'
 
-end as pd\_first\_hadm,
+    END AS pd_first_hadm,
 
-l.icu\_day\_first\_dialysis,
+    l.icu_day_first_dialysis,
 
-l.hosp\_day\_first\_dialysis,
+    l.hosp_day_first_dialysis,
 
-l.cr\_prior\_to\_dialysis,
+    l.cr_prior_to_dialysis,
 
-cd.days\_btw\_cr\_and\_dialysis,
+    cd.days_btw_cr_and_dialysis,
 
-l.bun\_prior\_to\_dialysis,
+    l.bun_prior_to_dialysis,
 
-fd.fluidbal\_prior\_to\_dialysis,
+    fd.fluidbal_prior_to_dialysis,
 
-ud.urine\_prior\_to\_dialysis,
+    ud.urine_prior_to_dialysis,
 
-ivfd.ivf\_prior\_to\_dialysis,
+    ivfd.ivf_prior_to_dialysis,
 
-s.saps\_day\_of\_dialysis
+    s.saps_day_of_dialysis
 
-from first\_dialysis f
+    FROM first_dialysis f
 
-left join hd on f.subject\_id=hd.subject\_id
+    LEFT JOIN hd ON f.subject_id=hd.subject_id
 
-left join pd on f.subject\_id=pd.subject\_id
+    LEFT JOIN pd ON f.subject_id=pd.subject_id
 
-left join labs\_prior\_to\_dialysis l on f.subject\_id=l.subject\_id
+    LEFT JOIN labs_prior_to_dialysis l ON f.subject_id=l.subject_id
 
-left join cr\_and\_dialysis cd on f.subject\_id=cd.subject\_id
+    LEFT JOIN cr_and_dialysis cd ON f.subject_id=cd.subject_id
 
-left join fluidbal\_dialysis fd on f.subject\_id=fd.subject\_id
+    LEFT JOIN fluidbal_dialysis fd ON f.subject_id=fd.subject_id
 
-left join uo\_dialysis ud on f.subject\_id=ud.subject\_id
+    LEFT JOIN uo_dialysis ud ON f.subject_id=ud.subject_id
 
-left join ivf\_dialysis ivfd on f.subject\_id=ivfd.subject\_id
+    LEFT JOIN ivf_dialysis ivfd ON f.subject_id=ivfd.subject_id
 
-left join saps\_dialysis s on f.subject\_id=s.subject\_id
+    LEFT JOIN saps_dialysis s ON f.subject_id=s.subject_id
 
-)
+    )
 
---select \* from all\_dialysis\_data;
+--SELECT * FROM all_dialysis_data;
 
 ---------------------------------
 
---- End of dialysis-related data
+--- END of dialysis-related data
 
 ---------------------------------
 
 -- daily SAPS scores
 
-, daily\_saps as
+, daily_saps AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-sum(ce.value1num) as total\_saps\_first\_icustay,
+    SUM(ce.value1num) AS total_saps_first_icustay,
 
-count(\*) as num\_saps\_scores\_first\_icustay,
+    COUNT(*) AS num_saps_scores_first_icustay,
 
-max(ce.value1num) as peak\_saps\_first\_icustay
+    MAX(ce.value1num) AS peak_saps_first_icustay
 
-from first\_admissions r
+    FROM first_admissions r
 
-join small\_chartevents ce on r.first\_icustay\_id=ce.icustay\_id and
-ce.itemid=20001
+    JOIN small_chartevents ce ON r.first_icustay_id=ce.icustay_id AND
+    ce.itemid=20001
 
-group by r.subject\_id
+    GROUP BY r.subject_id
 
-)
+    )
 
---select \* from daily\_saps;
+--SELECT * FROM daily_saps;
 
 -- mechanical ventilation
 
-, mech\_vent as
+, mech_vent AS
 
-(select distinct icustay\_id
+    (SELECT DISTINCT icustay_id
 
-from mimic2devel.ventilation
+    FROM mimic2devel.ventilation
 
-)
+    )
 
---select \* from mech\_vent
+--SELECT * FROM mech_vent
 
 -- Get home diuretics
 
-, count\_home\_diuretics as
+, count_home_diuretics AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-case
+    CASE
 
-when hm.hadm\_id is null then null
+    WHEN hm.hadm_id IS NULL THEN null
 
-when pm.name is not null then 1
+    WHEN pm.name IS NOT NULL THEN 1
 
-else 0
+    ELSE 0
 
-end diuretic\_flg
+    END diuretic_flg
 
-from first\_admissions r
+    FROM first_admissions r
 
-left join lilehman.pt\_with\_home\_meds hm on
-r.first\_hadm\_id=hm.hadm\_id
+    LEFT JOIN lilehman.pt_with_home_meds hm ON
+    r.first_hadm_id=hm.hadm_id
 
-left join lilehman.ppi\_admission\_drugs2 p on
-r.first\_hadm\_id=p.hadm\_id
+    LEFT JOIN lilehman.ppi_admission_drugs2 p ON
+    r.first_hadm_id=p.hadm_id
 
-left join djscott.ppi\_med\_groups pm on
-instr(pm.name,p.medication)&gt;0 and pm.med\_category='DIURETIC'
+    LEFT JOIN djscott.ppi_med_groups pm ON
+    instr(pm.name,p.medication)>0 AND pm.med_category='DIURETIC'
 
-)
+    )
 
---select \* from count\_home\_diuretics;
+--SELECT * FROM count_home_diuretics;
 
 -- Tally the number of home diuretics
 
-, home\_diuretics as
+, home_diuretics AS
 
-(select subject\_id,
+    (SELECT subject_id,
 
-sum(diuretic\_flg) as num\_home\_diuretics
+    SUM(diuretic_flg) AS num_home_diuretics
 
-from count\_home\_diuretics
+    FROM count_home_diuretics
 
-group by subject\_id
+    GROUP BY subject_id
 
-)
+    )
 
---select \* from home\_diuretics;
+--SELECT * FROM home_diuretics;
 
--- Vasopressors during the first 24 hours in the ICU
+-- VASopressors during the first 24 hours IN the ICU
 
-, icu\_admit\_pressors as
+, icu_admit_pressors AS
 
-(SELECT DISTINCT r.subject\_id
+    (SELECT DISTINCT r.subject_id
 
-FROM first\_admissions r
+    FROM first_admissions r
 
-JOIN mimic2v26.medevents m
+    JOIN mimic2v26.medevents m
 
-on r.first\_icustay\_id=m.icustay\_id
+    ON r.first_icustay_id=m.icustay_id
 
-WHERE m.itemid in (42, 43, 44, 46, 47, 51, 119, 120, 125, 127, 128, 306,
-307, 309)
+    WHERE m.itemid IN (42, 43, 44, 46, 47, 51, 119, 120, 125, 127, 128, 306,
+    307, 309)
 
-and m.dose &gt; 0
+    AND m.dose > 0
 
-and m.charttime between r.first\_icustay\_intime and
-r.first\_icustay\_intime + interval '24' hour
+    AND m.charttime BETWEEN r.first_icustay_intime AND
+    r.first_icustay_intime + interval '24' hour
 
-)
+    )
 
---select \* from icu\_admit\_pressors;
+--SELECT * FROM icu_admit_pressors;
 
--- Assemble final data
+-- ASsemble final data
 
-, final\_data as
+, final_data AS
 
-(select r.subject\_id,
+    (SELECT r.subject_id,
 
-r.first\_hadm\_id,
+    r.first_hadm_id,
 
-r.first\_icustay\_id,
+    r.first_icustay_id,
 
-r.days\_btw\_hosp\_icu\_admit,
+    r.days_btw_hosp_icu_admit,
 
-r.days\_btw\_hosp\_icu\_disch,
+    r.days_btw_hosp_icu_disch,
 
-r.icu\_mort\_first\_admission,
+    r.icu_mort_first_admission,
 
-r.hosp\_mort\_first\_admission,
+    r.hosp_mort_first_admission,
 
-r.first\_hadm\_source,
+    r.first_hadm_source,
 
-r.ED\_admission,
+    r.ED_admission,
 
-r.age\_first\_icustay,
+    r.age_first_icustay,
 
-r.gender,
+    r.gender,
 
-r.race,
+    r.race,
 
-r.first\_icustay\_los,
+    r.first_icustay_los,
 
-r.icustay\_first\_service,
+    r.icustay_first_service,
 
-r.first\_icustay\_admit\_saps,
+    r.first_icustay_admit_saps,
 
-r.first\_hadm\_sepsis,
+    r.first_hadm_sepsis,
 
-r.second\_hadm\_id,
+    r.second_hadm_id,
 
-r.second\_icustay\_id,
+    r.second_icustay_id,
 
-r.readmission\_90d,
+    r.readmission_90d,
 
-r.readmission\_1yr,
+    r.readmission_1yr,
 
-r.days\_to\_readmission,
+    r.days_to_readmission,
 
-r.mortality\_90d,
+    r.mortality_90d,
 
-r.mortality\_1yr,
+    r.mortality_1yr,
 
-r.survival\_2yr\_hadm\_disch,
+    r.survival_2yr_hadm_disch,
 
-r.survival\_2yr\_icu\_disch,
+    r.survival_2yr_icu_disch,
 
-r.days\_icu\_disch\_to\_hosp\_mort,
+    r.days_icu_disch_to_hosp_mort,
 
-al.days\_btw\_icu\_lab\_hosp\_admit,
+    al.days_btw_icu_lab_hosp_admit,
 
-al.same\_hosp\_icu\_admit\_labs,
+    al.same_hosp_icu_admit_labs,
 
-al.icu\_admit\_serum\_cr,
+    al.icu_admit_serum_cr,
 
-al.icu\_admit\_serum\_sodium,
+    al.icu_admit_serum_sodium,
 
-al.icu\_admit\_urine\_protein,
+    al.icu_admit_urine_protein,
 
-al.icu\_admit\_urine\_cr,
+    al.icu_admit_urine_cr,
 
-al.icu\_admit\_urine\_sodium,
+    al.icu_admit_urine_sodium,
 
-al.icu\_admit\_urine\_prot\_cr\_ratio,
+    al.icu_admit_urine_prot_cr_ratio,
 
-al.icu\_admit\_bun,
+    al.icu_admit_bun,
 
-al.icu\_admit\_potassium,
+    al.icu_admit_potassium,
 
-al.icu\_admit\_chloride,
+    al.icu_admit_chloride,
 
-al.icu\_admit\_bicarb,
+    al.icu_admit_bicarb,
 
-al.icu\_admit\_hematocrit,
+    al.icu_admit_hematocrit,
 
-al.icu\_admit\_wbc,
+    al.icu_admit_wbc,
 
-al.icu\_admit\_magnesium,
+    al.icu_admit_magnesium,
 
-al.icu\_admit\_phosphate,
+    al.icu_admit_phosphate,
 
-al.icu\_admit\_calcium,
+    al.icu_admit_calcium,
 
-al.icu\_admit\_lactate,
+    al.icu_admit_lactate,
 
-al.icu\_admit\_ph,
+    al.icu_admit_ph,
 
-al.icu\_admit\_platelets,
+    al.icu_admit_platelets,
 
-al.icu\_admit\_albumin,
+    al.icu_admit_albumin,
 
-al.icu\_admit\_glucose,
+    al.icu_admit_glucose,
 
-al.icu\_admit\_inr,
+    al.icu_admit_inr,
 
-al.icu\_admit\_pt,
+    al.icu_admit_pt,
 
-al.icu\_admit\_ptt,
+    al.icu_admit_ptt,
 
-al.icu\_admit\_haptoglobin,
+    al.icu_admit_haptoglobin,
 
-al.icu\_admit\_ldh,
+    al.icu_admit_ldh,
 
-al.icu\_admit\_d\_dimer,
+    al.icu_admit_d_dimer,
 
-al.hosp\_admit\_serum\_cr,
+    al.hosp_admit_serum_cr,
 
-al.hosp\_admit\_serum\_sodium,
+    al.hosp_admit_serum_sodium,
 
-al.hosp\_admit\_urine\_protein,
+    al.hosp_admit_urine_protein,
 
-al.hosp\_admit\_urine\_cr,
+    al.hosp_admit_urine_cr,
 
-al.hosp\_admit\_urine\_sodium,
+    al.hosp_admit_urine_sodium,
 
-al.hosp\_admit\_urine\_prot\_cr\_ratio,
+    al.hosp_admit_urine_prot_cr_ratio,
 
-al.hosp\_admit\_bun,
+    al.hosp_admit_bun,
 
-al.hosp\_admit\_potassium,
+    al.hosp_admit_potassium,
 
-al.hosp\_admit\_chloride,
+    al.hosp_admit_chloride,
 
-al.hosp\_admit\_bicarb,
+    al.hosp_admit_bicarb,
 
-al.hosp\_admit\_hematocrit,
+    al.hosp_admit_hematocrit,
 
-al.hosp\_admit\_wbc,
+    al.hosp_admit_wbc,
 
-al.hosp\_admit\_magnesium,
+    al.hosp_admit_magnesium,
 
-al.hosp\_admit\_phosphate,
+    al.hosp_admit_phosphate,
 
-al.hosp\_admit\_calcium,
+    al.hosp_admit_calcium,
 
-al.hosp\_admit\_lactate,
+    al.hosp_admit_lactate,
 
-al.hosp\_admit\_ph,
+    al.hosp_admit_ph,
 
-al.hosp\_admit\_platelets,
+    al.hosp_admit_platelets,
 
-al.hosp\_admit\_albumin,
+    al.hosp_admit_albumin,
 
-al.hosp\_admit\_glucose,
+    al.hosp_admit_glucose,
 
-al.cr\_peak\_first\_icustay,
+    al.cr_peak_first_icustay,
 
-al.cr\_disch\_first\_icustay,
+    al.cr_disch_first_icustay,
 
-al.num\_cr\_first\_icustay,
+    al.num_cr_first_icustay,
 
-al.num\_daily\_cr\_first\_icustay,
+    al.num_daily_cr_first_icustay,
 
-al.admit\_serum\_cr\_second\_icustay,
+    al.admit_serum_cr_second_icustay,
 
-CASE
+    CASE
 
-WHEN r.gender='F' AND (r.race LIKE '%AFRICAN%' OR r.race LIKE '%BLACK%')
-THEN ROUND(186
-\*POWER(al.cr\_disch\_first\_icustay,-1.154)\*POWER(r.age\_first\_icustay,-0.203)
-\* 1.212 \* 0.742 ,2)
+    WHEN r.gender='F' AND (r.race LIKE '%AFRICAN%' OR r.race LIKE '%BLACK%')
+    THEN ROUND(186
+    *POWER(al.cr_disch_first_icustay,-1.154)*POWER(r.age_first_icustay,-0.203)
+    * 1.212 * 0.742 ,2)
 
-WHEN r.gender='M' AND (r.race LIKE '%AFRICAN%' OR r.race LIKE '%BLACK%')
-THEN ROUND(186
-\*POWER(al.cr\_disch\_first\_icustay,-1.154)\*POWER(r.age\_first\_icustay,-0.203)
-\* 1.212 ,2)
+    WHEN r.gender='M' AND (r.race LIKE '%AFRICAN%' OR r.race LIKE '%BLACK%')
+    THEN ROUND(186
+    *POWER(al.cr_disch_first_icustay,-1.154)*POWER(r.age_first_icustay,-0.203)
+    * 1.212 ,2)
 
-WHEN r.gender='F' AND (r.race NOT LIKE '%AFRICAN%' AND r.race NOT LIKE
-'%BLACK%') THEN ROUND(186
-\*POWER(al.cr\_disch\_first\_icustay,-1.154)\*POWER(r.age\_first\_icustay,-0.203)
-\* 0.742 ,2)
+    WHEN r.gender='F' AND (r.race NOT LIKE '%AFRICAN%' AND r.race NOT LIKE
+    '%BLACK%') THEN ROUND(186
+    *POWER(al.cr_disch_first_icustay,-1.154)*POWER(r.age_first_icustay,-0.203)
+    * 0.742 ,2)
 
-WHEN r.gender='M' AND (r.race NOT LIKE '%AFRICAN%' AND r.race NOT LIKE
-'%BLACK%') THEN ROUND(186
-\*POWER(al.cr\_disch\_first\_icustay,-1.154)\*POWER(r.age\_first\_icustay,-0.203)
-,2)
+    WHEN r.gender='M' AND (r.race NOT LIKE '%AFRICAN%' AND r.race NOT LIKE
+    '%BLACK%') THEN ROUND(186
+    *POWER(al.cr_disch_first_icustay,-1.154)*POWER(r.age_first_icustay,-0.203)
+    ,2)
 
-END as mdrd\_disch\_first\_icustay,
+    END AS mdrd_disch_first_icustay,
 
-awh.weight\_admit\_first\_icustay,
+    awh.weight_admit_first_icustay,
 
-awh.height\_admit\_first\_icustay,
+    awh.height_admit_first_icustay,
 
-awh.bmi\_admit\_first\_icustay,
+    awh.bmi_admit_first_icustay,
 
-awh.weight\_disch\_first\_icustay,
+    awh.weight_disch_first_icustay,
 
-awh.weight\_admit\_second\_icustay,
+    awh.weight_admit_second_icustay,
 
-ahf.hr\_admit\_first\_icustay,
+    ahf.hr_admit_first_icustay,
 
-ahs.hr\_admit\_second\_icustay,
+    ahs.hr_admit_second_icustay,
 
-round(amf.map\_admit\_first\_icustay,2) as map\_admit\_first\_icustay,
+    ROUND(amf.map_admit_first_icustay,2) AS map_admit_first_icustay,
 
-case
+    CASE
 
-when amf.map\_type\_first\_icustay=52 then 'invasive'
+    WHEN amf.map_type_first_icustay=52 THEN 'invASive'
 
-when amf.map\_type\_first\_icustay=456 then 'non-invasive'
+    WHEN amf.map_type_first_icustay=456 THEN 'non-invASive'
 
-else null
+    ELSE NULL
 
-end as map\_type\_first\_icustay,
+    END AS map_type_first_icustay,
 
-round(ams.map\_admit\_second\_icustay,2) as map\_admit\_second\_icustay,
+    ROUND(ams.map_admit_second_icustay,2) AS map_admit_second_icustay,
 
-case
+    CASE
 
-when ams.map\_type\_second\_icustay=52 then 'invasive'
+    WHEN ams.map_type_second_icustay=52 THEN 'invASive'
 
-when ams.map\_type\_second\_icustay=456 then 'non-invasive'
+    WHEN ams.map_type_second_icustay=456 THEN 'non-invASive'
 
-else null
+    ELSE NULL
 
-end as map\_type\_second\_icustay,
+    END AS map_type_second_icustay,
 
-abf.sbp\_admit\_first\_icustay,
+    abf.sbp_admit_first_icustay,
 
-abs.sbp\_admit\_second\_icustay,
+    abs.sbp_admit_second_icustay,
 
-abf.dbp\_admit\_first\_icustay,
+    abf.dbp_admit_first_icustay,
 
-abs.dbp\_admit\_second\_icustay,
+    abs.dbp_admit_second_icustay,
 
-case
+    CASE
 
-when abf.sbp\_dbp\_type\_first\_icustay=51 then 'invasive'
+    WHEN abf.sbp_dbp_type_first_icustay=51 THEN 'invASive'
 
-when abf.sbp\_dbp\_type\_first\_icustay=455 then 'non-invasive'
+    WHEN abf.sbp_dbp_type_first_icustay=455 THEN 'non-invASive'
 
-else null
+    ELSE NULL
 
-end as sbp\_dbp\_type\_first\_icustay,
+    END AS sbp_dbp_type_first_icustay,
 
-case
+    CASE
 
-when abs.sbp\_dbp\_type\_second\_icustay=51 then 'invasive'
+    WHEN abs.sbp_dbp_type_second_icustay=51 THEN 'invASive'
 
-when abs.sbp\_dbp\_type\_second\_icustay=455 then 'non-invasive'
+    WHEN abs.sbp_dbp_type_second_icustay=455 THEN 'non-invASive'
 
-else null
+    ELSE NULL
 
-end as sbp\_dbp\_type\_second\_icustay,
+    END AS sbp_dbp_type_second_icustay,
 
-round(atf.temp\_admit\_first\_icustay,2) as temp\_admit\_first\_icustay,
+    ROUND(atf.temp_admit_first_icustay,2) AS temp_admit_first_icustay,
 
-round(ats.temp\_admit\_second\_icustay,2) as
-temp\_admit\_second\_icustay,
+    ROUND(ats.temp_admit_second_icustay,2) AS
+    temp_admit_second_icustay,
 
-aof.o2sat\_admit\_first\_icustay,
+    aof.o2sat_admit_first_icustay,
 
-aos.o2sat\_admit\_second\_icustay,
+    aos.o2sat_admit_second_icustay,
 
-ufi.urine\_first\_icustay,
+    ufi.urine_first_icustay,
 
-ufi24.urine\_first\_icustay\_24h,
+    ufi24.urine_first_icustay_24h,
 
-case
+    CASE
 
-when hnf.half\_ns\_first\_icustay is null then 0
+    WHEN hnf.half_ns_first_icustay IS NULL THEN 0
 
-else hnf.half\_ns\_first\_icustay
+    ELSE hnf.half_ns_first_icustay
 
-end as half\_ns\_first\_icustay,
+    END AS half_ns_first_icustay,
 
-case
+    CASE
 
-when qnf.quarter\_ns\_first\_icustay is null then 0
+    WHEN qnf.quarter_ns_first_icustay IS NULL THEN 0
 
-else qnf.quarter\_ns\_first\_icustay
+    ELSE qnf.quarter_ns_first_icustay
 
-end as quarter\_ns\_first\_icustay,
+    END AS quarter_ns_first_icustay,
 
-case
+    CASE
 
-when dwf.d5w\_first\_icustay is null then 0
+    WHEN dwf.d5w_first_icustay IS NULL THEN 0
 
-else dwf.d5w\_first\_icustay
+    ELSE dwf.d5w_first_icustay
 
-end as d5w\_first\_icustay,
+    END AS d5w_first_icustay,
 
-case
+    CASE
 
-when crf.cryst\_first\_icustay is null then 0
+    WHEN crf.cryst_first_icustay IS NULL THEN 0
 
-else crf.cryst\_first\_icustay
+    ELSE crf.cryst_first_icustay
 
-end as iso\_cryst\_first\_icustay,
+    END AS iso_cryst_first_icustay,
 
-case
+    CASE
 
-when cof.colloid\_first\_icustay is null then 0
+    WHEN cof.colloid_first_icustay IS NULL THEN 0
 
-else cof.colloid\_first\_icustay
+    ELSE cof.colloid_first_icustay
 
-end as colloid\_first\_icustay,
+    END AS colloid_first_icustay,
 
-case
+    CASE
 
-when crf.cryst\_first\_icustay is null and cof.colloid\_first\_icustay
-is null then 0
+    WHEN crf.cryst_first_icustay IS NULL AND cof.colloid_first_icustay
+    IS NULL THEN 0
 
-when crf.cryst\_first\_icustay is null and cof.colloid\_first\_icustay
-is not null then cof.colloid\_first\_icustay
+    WHEN crf.cryst_first_icustay IS NULL AND cof.colloid_first_icustay
+    IS NOT NULL THEN cof.colloid_first_icustay
 
-when crf.cryst\_first\_icustay is not null and
-cof.colloid\_first\_icustay is null then crf.cryst\_first\_icustay
+    WHEN crf.cryst_first_icustay IS NOT NULL AND
+    cof.colloid_first_icustay IS NULL THEN crf.cryst_first_icustay
 
-else crf.cryst\_first\_icustay+cof.colloid\_first\_icustay
+    ELSE crf.cryst_first_icustay+cof.colloid_first_icustay
 
-end as ivf\_first\_icustay,
+    END AS ivf_first_icustay,
 
-case
+    CASE
 
-when pif.po\_intake\_first\_icustay is null then 0
+    WHEN pif.po_intake_first_icustay IS NULL THEN 0
 
-else pif.po\_intake\_first\_icustay
+    ELSE pif.po_intake_first_icustay
 
-end as po\_intake\_first\_icustay,
+    END AS po_intake_first_icustay,
 
-case
+    CASE
 
-when sf.stool\_first\_icustay is null then 0
+    WHEN sf.stool_first_icustay IS NULL THEN 0
 
-else sf.stool\_first\_icustay
+    ELSE sf.stool_first_icustay
 
-end as stool\_first\_icustay,
+    END AS stool_first_icustay,
 
-round(tif.total\_in\_first\_icustay,1) as total\_in\_first\_icustay,
+    ROUND(tif.total_in_first_icustay,1) AS total_in_first_icustay,
 
-round(tof.total\_out\_first\_icustay,1) as total\_out\_first\_icustay,
+    ROUND(tof.total_out_first_icustay,1) AS total_out_first_icustay,
 
-round(ff.fluid\_balance\_first\_icustay,1) as
-fluid\_balance\_first\_icustay,
+    ROUND(ff.fluid_balance_first_icustay,1) AS
+    fluid_balance_first_icustay,
 
-ad.first\_dialysis\_dt,
+    ad.first_dialysis_dt,
 
-ad.hd\_first\_hadm,
+    ad.hd_first_hadm,
 
-ad.pd\_first\_hadm,
+    ad.pd_first_hadm,
 
-ad.icu\_day\_first\_dialysis,
+    ad.icu_day_first_dialysis,
 
-ad.hosp\_day\_first\_dialysis,
+    ad.hosp_day_first_dialysis,
 
-ad.cr\_prior\_to\_dialysis,
+    ad.cr_prior_to_dialysis,
 
-ad.days\_btw\_cr\_and\_dialysis,
+    ad.days_btw_cr_and_dialysis,
 
-ad.bun\_prior\_to\_dialysis,
+    ad.bun_prior_to_dialysis,
 
-ad.fluidbal\_prior\_to\_dialysis,
+    ad.fluidbal_prior_to_dialysis,
 
-ad.urine\_prior\_to\_dialysis,
+    ad.urine_prior_to_dialysis,
 
-ad.ivf\_prior\_to\_dialysis,
+    ad.ivf_prior_to_dialysis,
 
-ad.saps\_day\_of\_dialysis,
+    ad.saps_day_of_dialysis,
 
-d.esrd,
+    d.esrd,
 
-d.preadmit\_ckd,
+    d.preadmit_ckd,
 
-d.preadmit\_base\_cr,
+    d.preadmit_bASe_cr,
 
-case
+    CASE
 
-when iap.subject\_id is null then 'N'
+    WHEN iap.subject_id IS NULL THEN 'N'
 
-else 'Y'
+    ELSE 'Y'
 
-end as first\_icu\_day\_vasopressor,
+    END AS first_icu_day_vASopressor,
 
-case
+    CASE
 
-when vc.icustay\_id is null then 'N'
+    WHEN vc.icustay_id IS NULL THEN 'N'
 
-else 'Y'
+    ELSE 'Y'
 
-end as vasopressor\_first\_icustay,
+    END AS vASopressor_first_icustay,
 
-case
+    CASE
 
-when mv.icustay\_id is null then 'N'
+    WHEN mv.icustay_id IS NULL THEN 'N'
 
-else 'Y'
+    ELSE 'Y'
 
-end as mech\_vent\_first\_icustay,
+    END AS mech_vent_first_icustay,
 
-ds.total\_saps\_first\_icustay,
+    ds.total_saps_first_icustay,
 
-ds.num\_saps\_scores\_first\_icustay,
+    ds.num_saps_scores_first_icustay,
 
-ds.peak\_saps\_first\_icustay,
+    ds.peak_saps_first_icustay,
 
-ifa.code as icd9\_code\_first\_icustay,
+    ifa.code AS icd9_code_first_icustay,
 
-ifa.description as icd9\_descr\_first\_icustay,
+    ifa.descriptiON AS icd9_descr_first_icustay,
 
-isa.code as icd9\_code\_second\_icustay,
+    isa.code AS icd9_code_second_icustay,
 
-isa.description as icd9\_descr\_second\_icustay,
+    isa.descriptiON AS icd9_descr_second_icustay,
 
-case
+    CASE
 
-when hdr.num\_home\_diuretics is null then 'N'
+    WHEN hdr.num_home_diuretics IS NULL THEN 'N'
 
-else 'Y'
+    ELSE 'Y'
 
-end as preadmit\_med\_section,
+    END AS preadmit_med_section,
 
-case
+    CASE
 
-when hdr.num\_home\_diuretics is null then null
+    WHEN hdr.num_home_diuretics IS NULL THEN null
 
-when hdr.num\_home\_diuretics&gt;0 then 'Y'
+    WHEN hdr.num_home_diuretics>0 THEN 'Y'
 
-else 'N'
+    ELSE 'N'
 
-end as preadmit\_diuretics,
+    END AS preadmit_diuretics,
 
-er.CONGESTIVE\_HEART\_FAILURE,
+    er.CONGESTIVE_HEART_FAILURE,
 
-er.CARDIAC\_ARRHYTHMIAS,
+    er.CARDIAC_ARRHYTHMIAS,
 
-er.VALVULAR\_DISEASE,
+    er.VALVULAR_DISEASE,
 
-er.PULMONARY\_CIRCULATION,
+    er.PULMONARY_CIRCULATION,
 
-er.PERIPHERAL\_VASCULAR,
+    er.PERIPHERAL_VASCULAR,
 
-er.HYPERTENSION,
+    er.HYPERTENSION,
 
-er.PARALYSIS,
+    er.PARALYSIS,
 
-er.OTHER\_NEUROLOGICAL,
+    er.OTHER_NEUROLOGICAL,
 
-er.CHRONIC\_PULMONARY,
+    er.CHRONIC_PULMONARY,
 
-er.DIABETES\_UNCOMPLICATED,
+    er.DIABETES_UNCOMPLICATED,
 
-er.DIABETES\_COMPLICATED,
+    er.DIABETES_COMPLICATED,
 
-er.HYPOTHYROIDISM,
+    er.HYPOTHYROIDISM,
 
-er.RENAL\_FAILURE,
+    er.RENAL_FAILURE,
 
-er.LIVER\_DISEASE,
+    er.LIVER_DISEASE,
 
-er.PEPTIC\_ULCER,
+    er.PEPTIC_ULCER,
 
-er.AIDS,
+    er.AIDS,
 
-er.LYMPHOMA,
+    er.LYMPHOMA,
 
-er.METASTATIC\_CANCER,
+    er.METASTATIC_CANCER,
 
-er.SOLID\_TUMOR,
+    er.SOLID_TUMOR,
 
-er.RHEUMATOID\_ARTHRITIS,
+    er.RHEUMATOID_ARTHRITIS,
 
-er.COAGULOPATHY,
+    er.COAGULOPATHY,
 
-er.OBESITY,
+    er.OBESITY,
 
-er.WEIGHT\_LOSS,
+    er.WEIGHT_LOSS,
 
-er.FLUID\_ELECTROLYTE,
+    er.FLUID_ELECTROLYTE,
 
-er.BLOOD\_LOSS\_ANEMIA,
+    er.BLOOD_LOSS_ANEMIA,
 
-er.DEFICIENCY\_ANEMIAS,
+    er.DEFICIENCY_ANEMIAS,
 
-er.ALCOHOL\_ABUSE,
+    er.ALCOHOL_ABUSE,
 
-er.DRUG\_ABUSE,
+    er.DRUG_ABUSE,
 
-er.PSYCHOSES,
+    er.PSYCHOSES,
 
-er.DEPRESSION
+    er.DEPRESSION
 
-from first\_admissions r
+    FROM first_admissions r
 
-left join all\_labs al on r.subject\_id=al.subject\_id
+    LEFT JOIN all_labs al ON r.subject_id=al.subject_id
 
-left join all\_weight\_height awh on r.subject\_id=awh.subject\_id
+    LEFT JOIN all_weight_height awh ON r.subject_id=awh.subject_id
 
-left join admit\_hr\_first\_icustay ahf on r.subject\_id=ahf.subject\_id
+    LEFT JOIN admit_hr_first_icustay ahf ON r.subject_id=ahf.subject_id
 
-left join admit\_hr\_second\_icustay ahs on
-r.subject\_id=ahs.subject\_id
+    LEFT JOIN admit_hr_second_icustay ahs ON
+    r.subject_id=ahs.subject_id
 
-left join admit\_map\_first\_icustay amf on
-r.subject\_id=amf.subject\_id
+    LEFT JOIN admit_map_first_icustay amf ON
+    r.subject_id=amf.subject_id
 
-left join admit\_map\_second\_icustay ams on
-r.subject\_id=ams.subject\_id
+    LEFT JOIN admit_map_second_icustay ams ON
+    r.subject_id=ams.subject_id
 
-left join admit\_bp\_first\_icustay abf on r.subject\_id=abf.subject\_id
+    LEFT JOIN admit_bp_first_icustay abf ON r.subject_id=abf.subject_id
 
-left join admit\_bp\_second\_icustay abs on
-r.subject\_id=abs.subject\_id
+    LEFT JOIN admit_bp_second_icustay abs ON
+    r.subject_id=abs.subject_id
 
-left join admit\_temp\_first\_icustay atf on
-r.subject\_id=atf.subject\_id
+    LEFT JOIN admit_temp_first_icustay atf ON
+    r.subject_id=atf.subject_id
 
-left join admit\_temp\_second\_icustay ats on
-r.subject\_id=ats.subject\_id
+    LEFT JOIN admit_temp_second_icustay ats ON
+    r.subject_id=ats.subject_id
 
-left join admit\_o2sat\_first\_icustay aof on
-r.subject\_id=aof.subject\_id
+    LEFT JOIN admit_o2sat_first_icustay aof ON
+    r.subject_id=aof.subject_id
 
-left join admit\_o2sat\_second\_icustay aos on
-r.subject\_id=aos.subject\_id
+    LEFT JOIN admit_o2sat_second_icustay aos ON
+    r.subject_id=aos.subject_id
 
-left join uo\_first\_icustay ufi on r.subject\_id=ufi.subject\_id
+    LEFT JOIN uo_first_icustay ufi ON r.subject_id=ufi.subject_id
 
-left join uo\_first\_icustay\_24h ufi24 on
-r.subject\_id=ufi24.subject\_id
+    LEFT JOIN uo_first_icustay_24h ufi24 ON
+    r.subject_id=ufi24.subject_id
 
-left join half\_ns\_first\_icustay hnf on r.subject\_id=hnf.subject\_id
+    LEFT JOIN half_ns_first_icustay hnf ON r.subject_id=hnf.subject_id
 
-left join quarter\_ns\_first\_icustay qnf on
-r.subject\_id=qnf.subject\_id
+    LEFT JOIN quarter_ns_first_icustay qnf ON
+    r.subject_id=qnf.subject_id
 
-left join d5w\_first\_icustay dwf on r.subject\_id=dwf.subject\_id
+    LEFT JOIN d5w_first_icustay dwf ON r.subject_id=dwf.subject_id
 
-left join cryst\_first\_icustay crf on r.subject\_id=crf.subject\_id
+    LEFT JOIN cryst_first_icustay crf ON r.subject_id=crf.subject_id
 
-left join colloid\_first\_icustay cof on r.subject\_id=cof.subject\_id
+    LEFT JOIN colloid_first_icustay cof ON r.subject_id=cof.subject_id
 
-left join pointake\_first\_icustay pif on r.subject\_id=pif.subject\_id
+    LEFT JOIN pointake_first_icustay pif ON r.subject_id=pif.subject_id
 
-left join stool\_first\_icustay sf on r.subject\_id=sf.subject\_id
+    LEFT JOIN stool_first_icustay sf ON r.subject_id=sf.subject_id
 
-left join totalin\_first\_icustay tif on r.subject\_id=tif.subject\_id
+    LEFT JOIN totalin_first_icustay tif ON r.subject_id=tif.subject_id
 
-left join totalout\_first\_icustay tof on r.subject\_id=tof.subject\_id
+    LEFT JOIN totalout_first_icustay tof ON r.subject_id=tof.subject_id
 
-left join fluidbal\_first\_icustay ff on r.subject\_id=ff.subject\_id
+    LEFT JOIN fluidbal_first_icustay ff ON r.subject_id=ff.subject_id
 
-left join icd9\_first\_admission ifa on r.subject\_id=ifa.subject\_id
+    LEFT JOIN icd9_first_admissiON ifa ON r.subject_id=ifa.subject_id
 
-left join icd9\_second\_admission isa on r.subject\_id=isa.subject\_id
+    LEFT JOIN icd9_second_admissiON isa ON r.subject_id=isa.subject_id
 
-left join mimic2devel.elixhauser\_revised er on
-r.first\_hadm\_id=er.hadm\_id
+    LEFT JOIN mimic2devel.elixhauser_revised er ON
+    r.first_hadm_id=er.hadm_id
 
-left join all\_dialysis\_data ad on r.subject\_id=ad.subject\_id
+    LEFT JOIN all_dialysis_data ad ON r.subject_id=ad.subject_id
 
-left join daily\_saps ds on r.subject\_id=ds.subject\_id
+    LEFT JOIN daily_saps ds ON r.subject_id=ds.subject_id
 
-left join joonlee.vasopressor\_use\_cohort vc on
-r.first\_icustay\_id=vc.icustay\_id
+    LEFT JOIN joonlee.vASopressor_use_cohort vc ON
+    r.first_icustay_id=vc.icustay_id
 
-left join mech\_vent mv on r.first\_icustay\_id=mv.icustay\_id
+    LEFT JOIN mech_vent mv ON r.first_icustay_id=mv.icustay_id
 
-left join home\_diuretics hdr on r.subject\_id=hdr.subject\_id
+    LEFT JOIN home_diuretics hdr ON r.subject_id=hdr.subject_id
 
-left join num\_daily\_cr\_first\_icustay ndc on
-r.subject\_id=ndc.subject\_id
+    LEFT JOIN num_daily_cr_first_icustay ndc ON
+    r.subject_id=ndc.subject_id
 
-left join joonlee.dialysis\_manual\_review\_john d on
-r.first\_hadm\_id=d.hadm\_id
+    LEFT JOIN joonlee.dialysis_manual_review_john d ON
+    r.first_hadm_id=d.hadm_id
 
-left join icu\_admit\_pressors iap on r.subject\_id=iap.subject\_id
+    LEFT JOIN icu_admit_pressors iap ON r.subject_id=iap.subject_id
 
-)
+    )
 
-select \* from final\_data;
+SELECT * 
+FROM final_data;

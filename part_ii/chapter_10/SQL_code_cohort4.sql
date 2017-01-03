@@ -1,4 +1,4 @@
-\[code\]
+-- SQL
 
 , case when ICUSTAY\_FIRST\_SERVICE='SICU' then 1
 

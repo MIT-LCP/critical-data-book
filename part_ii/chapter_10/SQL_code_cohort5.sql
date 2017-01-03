@@ -1,5 +1,5 @@
-\[code\] \* *missing code for sepsis\_angus sep…couldn’t find this piece
-of code on GitHub…*
+-- SQL 
+-- missing code for sepsis\_angus sep…couldn’t find this piece of code on GitHub
 
 , sepsis\_group as
 

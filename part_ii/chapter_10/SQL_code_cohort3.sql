@@ -1,4 +1,4 @@
-\[code\]
+-- SQL
 
 ,vent\_group\_1 as
 

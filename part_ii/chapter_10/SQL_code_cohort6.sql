@@ -1,4 +1,6 @@
-\[code\] , vaso\_group\_1 as
+-- SQL 
+
+, vaso\_group\_1 as
 
 (select
 
