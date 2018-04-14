@@ -32,7 +32,7 @@ All the SQL queries to count the number of patients per cohorts as well as the c
 
 * `CPE_physician_notes.xml` : cTAKES XML configuration file to process patients' notes. Some paths need to be adapted to the developer's configuration.
 
-* _Python script needs uploading_
+* Python scripts: see `python` folder.
 
 
 ***
