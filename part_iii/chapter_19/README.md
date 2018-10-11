@@ -2,9 +2,7 @@
 
 This directory contains the code used in the following publication:
 
-Penna N. D. *et al.* **Instrumental Variable Analysis of Electronic Health Records**, in *Secondary analysis of Electronic Health Record Data*, Springer, [Under Review]
-
-Code is provided in R format.
+Penna N. D. *et al.* **Instrumental Variable Analysis of Electronic Health Records**, in *Secondary analysis of Electronic Health Record Data*, Springer.
 
 ## Summary of Publication
 
@@ -12,9 +10,11 @@ Sources of variation in treatments received that are exogenous to patients can b
 
 ## Replicating this Publication
 
-The work presented in this case study can be replicated as follows:
+The work presented in this case study can be replicated using the attached files. 
 
-* `analysis_main.Rmd` : The main script
+* `icu_boarders.py`: Extraction and pre-processing of data from the MIMIC database using Python.
+
+* `analysis_main.Rmd` : Statistical analysis using R.
 
 
 ***
