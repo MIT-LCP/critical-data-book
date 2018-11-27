@@ -4,7 +4,7 @@ This directory contains the code used in the following publication:
 
 Komorowski M. and Raffa J. **Markov Models and Cost Effectiveness Analysis: Applications in Medical Research**, in *Secondary analysis of Electronic Health Record Data*, Springer, [Under Review]
 
-Code is provided in Matlab&reg; format.
+Code is provided in Matlab&reg; format.  An `R` version has been added post-publication for those who are interested.
 
 ## Summary of Publication
 
@@ -22,6 +22,7 @@ The work presented in this case study can be replicated as follows:
 
 * `Matlab_2R_health_forecast.m` : _insert_
 
+* `MCMC_solver.R`: An `R` implementation of `MCMC_solver.m`
 
 
 
