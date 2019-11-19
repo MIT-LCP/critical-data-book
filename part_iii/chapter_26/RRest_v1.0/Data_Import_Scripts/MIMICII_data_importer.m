@@ -100,7 +100,7 @@ end
 up.extraction.period = 600;    % period of waveform data to extract (in s)
 up.extraction.rel_sigs = {'II', 'PLETH', 'RESP'};    % required signals
 up.extraction.rel_nums = {'HR', 'PULSE', 'RESP'};    % required numerics
-up.no_pt_stays = 10;  %%%%%%%%% should be 100;
+up.no_pt_stays = 100;
 
 % database definitions
 up.mimic_db.version = 3;
