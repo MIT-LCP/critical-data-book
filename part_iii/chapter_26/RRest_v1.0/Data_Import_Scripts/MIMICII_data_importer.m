@@ -71,15 +71,15 @@ fprintf('\n -- Setting up Universal Parameters')
 
 % Please note that your system may require the slashes in file paths to be
 % of the opposite direction. In which case, change the following:
-slash = '\';
+up.paths.slash = filesep;
 
 % Specify the root data directory (where the data will be stored)
-up.paths.data_save_folder = 'C:\Documents\Data\';
-up.paths.data_root = [up.paths.data_save_folder, 'mimicii', slash];
+up.paths.data_save_folder = '/Users/petercharlton/Downloads/downloaded2/critical-data-book-master2/files/';  % must end with a slash
+up.paths.data_root = [up.paths.data_save_folder, 'mimicii', up.paths.slash];
 
 % Specify the web address of the data to be downloaded
 rel_database = 'mimic2wdb';
-up.paths.database_dir = ['http://physionet.org/physiobank/database/', rel_database];
+up.paths.database_dir = ['http://archive.physionet.org/physiobank/database/', rel_database];
 
 % if you want .eps illustrations, then do as follows:
 up.eps_figs = 0;  % set this to 1
@@ -100,16 +100,16 @@ end
 up.extraction.period = 600;    % period of waveform data to extract (in s)
 up.extraction.rel_sigs = {'II', 'PLETH', 'RESP'};    % required signals
 up.extraction.rel_nums = {'HR', 'PULSE', 'RESP'};    % required numerics
-up.no_pt_stays = 100;
+up.no_pt_stays = 10;  %%%%%%%%% should be 100;
 
 % database definitions
 up.mimic_db.version = 3;
 up.mimic_db.part = 0;
 
 % paths
-up.paths.file_location = [up.paths.data_root, 'physionet.org\physiobank\database\', rel_database, '\', num2str(up.mimic_db.version), num2str(up.mimic_db.part), '\'];
-up.paths.analysis_path = [up.paths.data_root, 'Analysis_files', slash 'Data_for_Analysis', slash ];
-up.paths.plots = [up.paths.data_root, 'Analysis_files', slash 'Results', slash 'Figures', slash ];
+up.paths.file_location = [up.paths.data_root, 'physionet.org', up.paths.slash, 'physiobank', up.paths.slash, 'database', up.paths.slash, rel_database, up.paths.slash, num2str(up.mimic_db.version), num2str(up.mimic_db.part), up.paths.slash];
+up.paths.analysis_path = [up.paths.data_root, 'Analysis_files', up.paths.slash, 'Data_for_Analysis', up.paths.slash ];
+up.paths.plots = [up.paths.data_root, 'Analysis_files', up.paths.slash, 'Results', up.paths.slash, 'Figures', up.paths.slash ];
 up.paths.records_filepath = [up.paths.analysis_path, 'RECORDS'];
 
 % url paths
@@ -165,14 +165,16 @@ for rec_no = 1 : length(rel_records)
     down_loc = [up.paths.database_dir, '/', num2str(up.mimic_db.version), num2str(up.mimic_db.part), '/', num2str(record), '/', 'RECORDS'];
     
     % set save location
-    save_folder = [up.paths.file_location, num2str(record), '\'];
+    save_folder = [up.paths.file_location, num2str(record), up.paths.slash];
     save_loc = [save_folder, 'RECORDS'];
     if ~exist(save_folder, 'dir')
         mkdir(save_folder)
     end
     
     % download RECORDS file for this record
-    outfilename = websave(save_loc,down_loc);
+    if ~exist(save_loc, 'file')
+        outfilename = websave(save_loc,down_loc);
+    end
     
     % find out what individual files are in this record:
     fileID = fopen(save_loc);
@@ -185,14 +187,18 @@ for rec_no = 1 : length(rel_records)
         curr_file_name = [file_names{file_no}, '.hea'];
         down_loc = [up.paths.database_dir, '/', num2str(up.mimic_db.version), num2str(up.mimic_db.part), '/', num2str(record), '/', curr_file_name];
         save_loc = [save_folder, curr_file_name];
-        outfilename = websave(save_loc,down_loc);
+        if ~exist(save_loc, 'file')
+            outfilename = websave(save_loc,down_loc);
+        end
         
         if ~strcmp(file_names{file_no}, num2str(record))
             % also download data file
             curr_file_name = [file_names{file_no}, '.dat'];
             down_loc = [up.paths.database_dir, '/', num2str(up.mimic_db.version), num2str(up.mimic_db.part), '/', num2str(record), '/', curr_file_name];
             save_loc = [save_folder, curr_file_name];
-            outfilename = websave(save_loc,down_loc);
+            if ~exist(save_loc, 'file')
+                outfilename = websave(save_loc,down_loc);
+            end
         end
     end
     
@@ -210,6 +216,8 @@ dirs = dir(up.paths.file_location);
 elim_els = ones(length(dirs),1);
 for s = 1:length(dirs)
     if length(dirs(s).name) < 3
+        elim_els(s) = 0;
+    elseif strcmp(dirs(s).name(1), '.')
         elim_els(s) = 0;
     end
 end
@@ -245,7 +253,7 @@ extraction_stats.no_records_with_sigs_and_num = 0;
 for pt_stay_no = 1 : no_pt_stays
     
     % set current dir
-    dir_path = [up.paths.file_location, pt_stays{pt_stay_no}, '\'];
+    dir_path = [up.paths.file_location, pt_stays{pt_stay_no}, up.paths.slash];
     cd(dir_path)
     
     % check to see if there are any files
@@ -362,7 +370,7 @@ for pt_stay_no = 1 : no_pt_stays
         
         filepath = [pt_stays{pt_stay_no}, 'n'];
         
-        if exist([up.paths.file_location, pt_stays{pt_stay_no}, '\', filepath, '.hea'], 'file')
+        if exist([up.paths.file_location, pt_stays{pt_stay_no}, up.paths.slash, filepath, '.hea'], 'file')
             
             % Extract file information (including which signals are present)
             [numinfo,Fs]=extract_file_info(filepath);
