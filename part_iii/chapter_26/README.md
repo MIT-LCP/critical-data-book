@@ -18,7 +18,8 @@ Both the database and code used to evaluate the techniques are publicly availabl
 The work presented in this case study can be replicated as follows:
 
 *   Ensure that you have the WFDB Toolbox for Matlab installed. Installation instructions are available [here](https://archive.physionet.org/physiotools/matlab/wfdb-app-matlab/).
-*   Download the code for the book from [here](https://github.com/MIT-LCP/critical-data-book/archive/master.zip). Extract the files by unzipping the directory. Navigate to the _part_iii/chapter26/_ directory.
+*   Download the code for the book from [here](https://github.com/MIT-LCP/critical-data-book/archive/master.zip). Extract the files by unzipping the directory. 
+*   Navigate to the _part_iii/chapter26/_ directory.
 *   You will also need [`rpeakdetect.m`](http://www.mit.edu/~gari/CODE/ECGtools/ecgBag/rpeakdetect.m), which is covered by the [GNU General Public Licence](https://www.gnu.org/licenses/gpl-3.0.en.html). Download this file and save it in the _Algorithms_ directory.
 *   Locate the [_MIMICII_data_importer.m_](https://raw.githubusercontent.com/peterhcharlton/RRest/master/RRest_v1.0/Data_Import_Scripts/MIMICII_data_importer.m) script contained within the _Data_Import_Scripts_ directory. Modify the _universal parameters_ specified within this script (starting on line 64) to choose the directories where data should be stored.
 *   Run the _MIMICII_data_importer.m_ script to download data from the MIMIC II dataset. Note that the data will total approximately 14 GB, so this will require sufficient disk space and may take some time. This will create a file called _mimicii_data.mat_ containing the data.
